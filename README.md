@@ -15,7 +15,7 @@ public static void JsonTest()
     string json = "{ \"i\": 15, \"j\": 27.5, \"k\": \"foo\" }";
     TestStruct testStruct = JsonValue.Deserialize<TestStruct>(json);
 	
-	// Decide what to do 
+    // Decide what to do with k depending on its type
     if (testStruct.k.isNumber)
     {
         Console.WriteLine($"Number: {(float)testStruct.k}");
