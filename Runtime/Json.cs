@@ -223,6 +223,7 @@ namespace AggroBird.Json
             set
             {
                 obj = (double)value;
+                type = JsonType.Number;
             }
         }
         public uint uintValue
@@ -238,6 +239,7 @@ namespace AggroBird.Json
             set
             {
                 obj = (double)value;
+                type = JsonType.Number;
             }
         }
         public long longValue
@@ -253,6 +255,7 @@ namespace AggroBird.Json
             set
             {
                 obj = (double)value;
+                type = JsonType.Number;
             }
         }
         public ulong ulongValue
@@ -268,6 +271,7 @@ namespace AggroBird.Json
             set
             {
                 obj = (double)value;
+                type = JsonType.Number;
             }
         }
         public float floatValue
@@ -283,6 +287,7 @@ namespace AggroBird.Json
             set
             {
                 obj = (double)value;
+                type = JsonType.Number;
             }
         }
         public double doubleValue
@@ -298,6 +303,7 @@ namespace AggroBird.Json
             set
             {
                 obj = value;
+                type = JsonType.Number;
             }
         }
         public decimal decimalValue
@@ -313,6 +319,7 @@ namespace AggroBird.Json
             set
             {
                 obj = (double)value;
+                type = JsonType.Number;
             }
         }
         public string stringValue
@@ -328,6 +335,7 @@ namespace AggroBird.Json
             set
             {
                 obj = value;
+                type = JsonType.String;
             }
         }
         public bool boolValue
@@ -343,6 +351,7 @@ namespace AggroBird.Json
             set
             {
                 obj = value;
+                type = JsonType.Bool;
             }
         }
         public JsonArray arrayValue
@@ -358,6 +367,7 @@ namespace AggroBird.Json
             set
             {
                 obj = value;
+                type = JsonType.Array;
             }
         }
         public JsonObject objectValue
@@ -373,6 +383,7 @@ namespace AggroBird.Json
             set
             {
                 obj = value;
+                type = JsonType.Object;
             }
         }
 
