@@ -933,12 +933,14 @@ namespace AggroBird.Json
                 value = asJsonValue.obj;
             }
 
+            // Null
             if (value == null)
             {
                 output.Append("null");
                 return;
             }
 
+            // Base types
             Type type = value.GetType();
             TypeCode typeCode = Type.GetTypeCode(type);
             switch (typeCode)
@@ -981,6 +983,7 @@ namespace AggroBird.Json
 
             if (value is IDictionary dictionary)
             {
+                // Dictionaries/objects
                 output.Append('{');
                 bool first = true;
                 foreach (DictionaryEntry entry in dictionary)
@@ -1000,6 +1003,7 @@ namespace AggroBird.Json
             }
             else if (value is IEnumerable list)
             {
+                // Arrays
                 output.Append('[');
                 bool first = true;
                 foreach (object entry in list)
@@ -1013,6 +1017,7 @@ namespace AggroBird.Json
             }
             else
             {
+                // Structs/classes
                 output.Append('{');
                 bool first = true;
                 foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
@@ -1065,18 +1070,9 @@ namespace AggroBird.Json
                 case '\b':
                     output.Append("\\b");
                     return true;
-                //case '<':
-                //    output.Append("\\u003c");
-                //    continue;
-                //case '>':
-                //    output.Append("\\u003e");
-                //    continue;
                 case '"':
                     output.Append("\\\"");
                     return true;
-                //case '\'':
-                //    output.Append("\\u0027");
-                //    continue;
                 case '\\':
                     output.Append("\\\\");
                     return true;
