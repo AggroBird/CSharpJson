@@ -335,7 +335,7 @@ namespace AggroBird.Json
             set
             {
                 obj = value;
-                type = JsonType.String;
+                type = value == null ? JsonType.Null : JsonType.String;
             }
         }
         public bool boolValue
@@ -367,7 +367,7 @@ namespace AggroBird.Json
             set
             {
                 obj = value;
-                type = JsonType.Array;
+                type = value == null ? JsonType.Null : JsonType.Array;
             }
         }
         public JsonObject objectValue
@@ -383,7 +383,7 @@ namespace AggroBird.Json
             set
             {
                 obj = value;
-                type = JsonType.Object;
+                type = value == null ? JsonType.Null : JsonType.Object;
             }
         }
 
