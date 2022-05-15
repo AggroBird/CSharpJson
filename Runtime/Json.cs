@@ -486,21 +486,52 @@ namespace AggroBird.Json
                             for (; pos < len; pos++)
                             {
                                 c = str[pos];
-                                if (c == '\\' && pos < len - 1)
+                                switch (c)
                                 {
-                                    switch (str[pos + 1])
+                                    case '\0':
+                                    case '\f':
+                                    case '\n':
+                                    case '\r':
+                                    case '\t':
+                                    case '\v':
+                                    case '\b':
+                                        throw new FormatException("Unsupported control character in string");
+
+                                    case '\\':
                                     {
-                                        case '\\': stringBuffer.Append('\\'); break;
-                                        case '"': stringBuffer.Append('\"'); break;
-                                        case 'b': stringBuffer.Append('\b'); break;
-                                        case 'f': stringBuffer.Append('\f'); break;
-                                        case 'n': stringBuffer.Append('\n'); break;
-                                        case 'r': stringBuffer.Append('\r'); break;
-                                        case 't': stringBuffer.Append('\t'); break;
-                                        case 'u': stringBuffer.Append("\\u"); break;
+                                        if (pos < len - 1)
+                                        {
+                                            switch (str[pos + 1])
+                                            {
+                                                case '\\': stringBuffer.Append('\\'); break;
+                                                case '/': stringBuffer.Append('/'); break;
+                                                case '"': stringBuffer.Append('\"'); break;
+                                                case 'b': stringBuffer.Append('\b'); break;
+                                                case 'f': stringBuffer.Append('\f'); break;
+                                                case 'n': stringBuffer.Append('\n'); break;
+                                                case 'r': stringBuffer.Append('\r'); break;
+                                                case 't': stringBuffer.Append('\t'); break;
+                                                case 'u':
+                                                {
+                                                    if (len - pos >= 6)
+                                                    {
+                                                        if (uint.TryParse(str.Substring(pos + 2, 4), NumberStyles.AllowHexSpecifier, null, out uint charCode))
+                                                        {
+                                                            stringBuffer.Append((char)charCode);
+                                                            pos += 5;
+                                                            continue;
+                                                        }
+                                                    }
+                                                }
+                                                goto InvalidEscape;
+                                                default: goto InvalidEscape;
+                                            }
+                                            pos++;
+                                            continue;
+                                        }
+                                    InvalidEscape:
+                                        throw new FormatException($"Invalid character escape sequence (line {lineNum})");
                                     }
-                                    pos++;
-                                    continue;
                                 }
                                 if (c == '"')
                                 {
@@ -523,8 +554,8 @@ namespace AggroBird.Json
                                 {
                                     case ' ':
                                     case '\t':
-                                    case '\r':
                                     case '\v':
+                                    case '\r':
                                     case '\n':
                                     case '{':
                                     case '}':
@@ -584,8 +615,8 @@ namespace AggroBird.Json
                     {
                         case ' ':
                         case '\t':
-                        case '\r':
                         case '\v':
+                        case '\r':
                             pos++;
                             continue;
 
@@ -687,18 +718,27 @@ namespace AggroBird.Json
 
             public JsonValue Deserialize()
             {
+                JsonValue result;
                 switch (ParseNext(out JsonValue val))
                 {
                     case TokenType.BraceOpen:
-                        return ParseObject();
+                        result = ParseObject();
+                        break;
                     case TokenType.BracketOpen:
-                        return ParseArray();
+                        result = ParseArray();
+                        break;
                     case TokenType.Value:
                     case TokenType.String:
-                        return val;
+                        result = val;
+                        break;
                     default:
                         throw new FormatException("Invalid Json string");
                 }
+                if (PeekNext() != TokenType.Eof)
+                {
+                    throw new FormatException($"Unexpected expression at the end of file (line {lineNum})");
+                }
+                return result;
             }
         }
 
