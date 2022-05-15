@@ -928,15 +928,15 @@ namespace AggroBird.Json
             }
             level++;
 
+            if (value is JsonValue asJsonValue)
+            {
+                value = asJsonValue.obj;
+            }
+
             if (value == null)
             {
                 output.Append("null");
                 return;
-            }
-
-            if (value is JsonValue asJsonValue)
-            {
-                value = asJsonValue.obj;
             }
 
             Type type = value.GetType();
