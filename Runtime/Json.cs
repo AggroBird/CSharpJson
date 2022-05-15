@@ -464,16 +464,19 @@ namespace AggroBird.Json
                     char c = str[beg];
                     switch (c)
                     {
+                        // Skip whitespaces
                         case ' ':
                         case '\t':
                         case '\r':
                         case '\v':
                             continue;
 
+                        // Increment newline
                         case '\n':
                             lineNum++;
                             continue;
 
+                        // Recognized tokens
                         case '{': return TokenType.BraceOpen;
                         case '}': return TokenType.BraceClose;
                         case '[': return TokenType.BracketOpen;
@@ -482,6 +485,7 @@ namespace AggroBird.Json
                         case ':': return TokenType.Colon;
                         case '"':
                         {
+                            // Iterate string characters
                             stringBuffer = stringBuffer ?? new StringBuilder(256);
                             for (; pos < len; pos++)
                             {
@@ -513,14 +517,12 @@ namespace AggroBird.Json
                                                 case 't': stringBuffer.Append('\t'); break;
                                                 case 'u':
                                                 {
-                                                    if (len - pos >= 6)
+                                                    // Parse hex char code
+                                                    if (len - pos >= 6 && uint.TryParse(str.Substring(pos + 2, 4), NumberStyles.AllowHexSpecifier, null, out uint charCode))
                                                     {
-                                                        if (uint.TryParse(str.Substring(pos + 2, 4), NumberStyles.AllowHexSpecifier, null, out uint charCode))
-                                                        {
-                                                            stringBuffer.Append((char)charCode);
-                                                            pos += 5;
-                                                            continue;
-                                                        }
+                                                        stringBuffer.Append((char)charCode);
+                                                        pos += 5;
+                                                        continue;
                                                     }
                                                 }
                                                 goto InvalidEscape;
@@ -535,6 +537,7 @@ namespace AggroBird.Json
                                 }
                                 if (c == '"')
                                 {
+                                    // End of string
                                     string str = stringBuffer.Length > 0 ? stringBuffer.ToString() : string.Empty;
                                     val = new JsonValue(str, JsonType.String);
                                     stringBuffer.Clear();
@@ -547,6 +550,7 @@ namespace AggroBird.Json
                         }
                         default:
                         {
+                            // Continue until token or whitespace
                             for (; pos < len; pos++)
                             {
                                 c = str[pos];
@@ -567,6 +571,7 @@ namespace AggroBird.Json
                                         goto ParseValue;
                                 }
                             }
+
                         ParseValue:
                             if (pos - beg > 0)
                             {
@@ -604,6 +609,7 @@ namespace AggroBird.Json
 
             private TokenType PeekNext()
             {
+                // Continue iterating until a token is encountered
                 while (true)
                 {
                     if (pos >= len)
@@ -734,10 +740,13 @@ namespace AggroBird.Json
                     default:
                         throw new FormatException("Invalid Json string");
                 }
+
+                // Ensure eof
                 if (PeekNext() != TokenType.Eof)
                 {
                     throw new FormatException($"Unexpected expression at the end of file (line {lineNum})");
                 }
+
                 return result;
             }
         }
@@ -879,21 +888,18 @@ namespace AggroBird.Json
             }
             else
             {
-                JsonObject dic = jsonObject.obj as JsonObject;
-                if (dic == null)
+                JsonObject dictionary = jsonObject.obj as JsonObject;
+                if (dictionary == null)
                 {
                     throw new InvalidCastException($"Invalid Json cast: '{jsonObject.obj.GetType()}' to '{typeof(JsonObject)}'");
                 }
                 object obj = Activator.CreateInstance(targetType);
-                foreach (var kv in dic)
+                foreach (var kv in dictionary)
                 {
                     FieldInfo field = targetType.GetField(kv.Key, BindingFlags.Instance | BindingFlags.Public);
                     if (field != null)
                     {
-                        if (dic.TryGetValue(field.Name, out JsonValue fieldValue))
-                        {
-                            field.SetValue(obj, DeserializeRecursive(field.FieldType, fieldValue));
-                        }
+                        field.SetValue(obj, DeserializeRecursive(field.FieldType, kv.Value));
                     }
                 }
                 return obj;
