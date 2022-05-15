@@ -390,7 +390,6 @@ namespace AggroBird.Json
 
 
         private object obj;
-        private JsonType objType;
 
         private string internalObjectTypeName
         {
