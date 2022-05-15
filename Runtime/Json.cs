@@ -789,7 +789,11 @@ namespace AggroBird.Json
                     {
                         if (typeCode == TypeCode.Char)
                         {
-                            return stringValue.Length > 0 ? stringValue[0] : '\0';
+                            if (stringValue.Length == 1)
+                            {
+                                return stringValue[0];
+                            }
+                            throw new InvalidCastException("Attempted to convert a string to a singular character");
                         }
 
                         return stringValue;
