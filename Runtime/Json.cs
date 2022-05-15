@@ -537,31 +537,35 @@ namespace AggroBird.Json
                                 }
                             }
                         ParseValue:
-                            string sub = str.Substring(beg, pos - beg);
-                            if (char.IsDigit(sub[0]) || sub[0] == '-')
+                            if (pos - beg > 0)
                             {
-                                if (double.TryParse(sub, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+                                string sub = str.Substring(beg, pos - beg);
+                                if (char.IsDigit(sub[0]) || sub[0] == '-')
                                 {
-                                    val = new JsonValue(d, JsonType.Number);
+                                    if (double.TryParse(sub, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+                                    {
+                                        val = new JsonValue(d, JsonType.Number);
+                                        return TokenType.Value;
+                                    }
+                                }
+                                else if (sub == "true")
+                                {
+                                    val = new JsonValue(true, JsonType.Bool);
                                     return TokenType.Value;
                                 }
+                                else if (sub == "false")
+                                {
+                                    val = new JsonValue(false, JsonType.Bool);
+                                    return TokenType.Value;
+                                }
+                                else if (sub == "null")
+                                {
+                                    val = new JsonValue(null, JsonType.Null);
+                                    return TokenType.Value;
+                                }
+                                throw new FormatException($"Unknown expression '{sub}' (line {lineNum})");
                             }
-                            else if (sub == "true")
-                            {
-                                val = new JsonValue(true, JsonType.Bool);
-                                return TokenType.Value;
-                            }
-                            else if (sub == "false")
-                            {
-                                val = new JsonValue(false, JsonType.Bool);
-                                return TokenType.Value;
-                            }
-                            else if (sub == "null")
-                            {
-                                val = new JsonValue(null, JsonType.Null);
-                                return TokenType.Value;
-                            }
-                            throw new FormatException($"Unknown expression '{sub}' (line {lineNum})");
+                            throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
                         }
                     }
                 }
