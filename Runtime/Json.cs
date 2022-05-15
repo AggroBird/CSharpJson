@@ -39,7 +39,7 @@ namespace AggroBird.Json
         private JsonValue(object obj, JsonType type)
         {
             this.obj = obj;
-            objType = type;
+            this.type = type;
         }
 
         public bool isNumber => type == JsonType.Number;
