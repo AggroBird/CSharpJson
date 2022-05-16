@@ -412,6 +412,8 @@ namespace AggroBird.Json
         private const string NullConstant = "null";
         private const int ReadMaxRecursion = 128;
         private const int WriteMaxRecursion = 32;
+        private const int StringBufferCapacity = 256;
+        private const int OutputBufferCapacity = 1024;
 
 
         private object obj;
@@ -507,7 +509,7 @@ namespace AggroBird.Json
                         case '"':
                         {
                             if (stringBuffer == null)
-                                stringBuffer = new StringBuilder(256);
+                                stringBuffer = new StringBuilder(StringBufferCapacity);
                             else
                                 stringBuffer.Clear();
 
@@ -1228,7 +1230,7 @@ namespace AggroBird.Json
         {
             if (stringBuffer == null)
             {
-                stringBuffer = new StringBuilder(1024);
+                stringBuffer = new StringBuilder(OutputBufferCapacity);
             }
             else
             {
