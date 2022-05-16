@@ -1019,16 +1019,14 @@ namespace AggroBird.Json
                             WriteEnumValue(value, typeCode);
                             return;
                         }
-                        goto case TypeCode.Decimal;
+                        outputBuffer.Append(value.ToString());
+                        return;
 
                     case TypeCode.Single:
                         WriteValue((float)value);
                         return;
                     case TypeCode.Double:
                         WriteValue((double)value);
-                        return;
-                    case TypeCode.Decimal:
-                        WriteValue(value as IConvertible);
                         return;
                 }
 
@@ -1095,7 +1093,7 @@ namespace AggroBird.Json
                     return;
                 }
 
-                throw new FormatException($"Failed to serialize field '{type}'");
+                throw new FormatException($"Failed to serialize field type '{type}'");
             }
 
             private static bool IsAnonymousType(Type type)
@@ -1176,10 +1174,6 @@ namespace AggroBird.Json
             private void WriteValue(double value)
             {
                 outputBuffer.Append(value.ToString(DoubleFormat, CultureInfo.InvariantCulture));
-            }
-            private void WriteValue(IConvertible value)
-            {
-                outputBuffer.Append(value.ToString(CultureInfo.InvariantCulture));
             }
 
             private void WriteEnumValue(object value, TypeCode typeCode)
