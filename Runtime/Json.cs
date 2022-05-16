@@ -22,7 +22,7 @@ namespace AggroBird.Json
     {
         public override string ToString()
         {
-            return JsonValue.Serialize(this);
+            return JsonValue.ToJson(this);
         }
     }
 
@@ -30,7 +30,7 @@ namespace AggroBird.Json
     {
         public override string ToString()
         {
-            return JsonValue.Serialize(this);
+            return JsonValue.ToJson(this);
         }
     }
 
@@ -410,13 +410,17 @@ namespace AggroBird.Json
             }
         }
 
+        public override int GetHashCode()
+        {
+            return obj == null ? 0 : obj.GetHashCode();
+        }
         public override string ToString()
         {
             if (obj is string str)
             {
                 return str;
             }
-            return Serialize(this);
+            return ToJson(this);
         }
 
 
@@ -436,15 +440,17 @@ namespace AggroBird.Json
                 Unknown = -1,
             }
 
-            public JsonParser(string str, StringBuilder stringBuffer)
+            public JsonParser(string str, StringBuilder stringBuffer, int maxRecursion)
             {
                 this.str = str;
                 this.stringBuffer = stringBuffer;
                 len = str.Length;
+                this.maxRecursion = maxRecursion;
             }
 
             private readonly string str;
             private readonly int len;
+            private readonly int maxRecursion;
             private StringBuilder stringBuffer;
             private int pos = 0;
             private int lineNum = 1;
@@ -643,8 +649,14 @@ namespace AggroBird.Json
                 }
             }
 
-            private JsonValue ParseObject()
+            private JsonValue ParseObject(int level)
             {
+                if (level >= maxRecursion)
+                {
+                    throw new OverflowException($"Max recursion level reached ({maxRecursion})");
+                }
+                level++;
+
                 JsonObject obj = new JsonObject();
                 if (PeekNext() != TokenType.BraceClose)
                 {
@@ -666,10 +678,10 @@ namespace AggroBird.Json
                             obj.Add(key.stringValue, val);
                             break;
                         case TokenType.BraceOpen:
-                            obj.Add(key.stringValue, ParseObject());
+                            obj.Add(key.stringValue, ParseObject(level));
                             break;
                         case TokenType.BracketOpen:
-                            obj.Add(key.stringValue, ParseArray());
+                            obj.Add(key.stringValue, ParseArray(level));
                             break;
 
                         default:
@@ -687,8 +699,14 @@ namespace AggroBird.Json
                 pos++;
                 return new JsonValue(obj, JsonType.Object);
             }
-            private JsonValue ParseArray()
+            private JsonValue ParseArray(int level)
             {
+                if (level >= maxRecursion)
+                {
+                    throw new OverflowException($"Max recursion level reached ({maxRecursion})");
+                }
+                level++;
+
                 JsonArray arr = new JsonArray();
                 if (PeekNext() != TokenType.BracketClose)
                 {
@@ -700,10 +718,10 @@ namespace AggroBird.Json
                             arr.Add(val);
                             break;
                         case TokenType.BraceOpen:
-                            arr.Add(ParseObject());
+                            arr.Add(ParseObject(level));
                             break;
                         case TokenType.BracketOpen:
-                            arr.Add(ParseArray());
+                            arr.Add(ParseArray(level));
                             break;
 
                         default:
@@ -728,10 +746,10 @@ namespace AggroBird.Json
                 switch (ParseNext(out JsonValue val))
                 {
                     case TokenType.BraceOpen:
-                        result = ParseObject();
+                        result = ParseObject(0);
                         break;
                     case TokenType.BracketOpen:
-                        result = ParseArray();
+                        result = ParseArray(0);
                         break;
                     case TokenType.Value:
                     case TokenType.String:
@@ -751,27 +769,27 @@ namespace AggroBird.Json
             }
         }
 
-        public static JsonValue Deserialize(string str, StringBuilder stringBuffer = null)
+        public static JsonValue FromJson(string str, StringBuilder stringBuffer = null, int maxRecursion = 128)
         {
             if (str == null) throw new ArgumentNullException(nameof(str));
-            return new JsonParser(str, stringBuffer).Deserialize();
+            return new JsonParser(str, stringBuffer, maxRecursion).Deserialize();
         }
 
-        public static object Deserialize(string str, Type targetType)
+        public static object FromJson(string str, Type targetType, StringBuilder stringBuffer = null, int maxRecursion = 128)
         {
             if (str == null) throw new ArgumentNullException(nameof(str));
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-            JsonValue jsonObject = Deserialize(str);
+            JsonValue jsonObject = FromJson(str, stringBuffer, maxRecursion);
             return DeserializeRecursive(targetType, jsonObject);
         }
-        public static object Deserialize(JsonValue jsonObject, Type targetType)
+        public static object FromJson(JsonValue jsonObject, Type targetType)
         {
             if (jsonObject == null) throw new ArgumentNullException(nameof(jsonObject));
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
             return DeserializeRecursive(targetType, jsonObject);
         }
-        public static T Deserialize<T>(string str) => (T)Deserialize(str, typeof(T));
-        public static T Deserialize<T>(JsonValue jsonObject) => (T)Deserialize(jsonObject, typeof(T));
+        public static T FromJson<T>(string str, StringBuilder stringBuffer = null, int maxRecursion = 128) => (T)FromJson(str, typeof(T), stringBuffer, maxRecursion);
+        public static T FromJson<T>(JsonValue jsonObject) => (T)FromJson(jsonObject, typeof(T));
 
         private static object DeserializeRecursive(Type targetType, JsonValue jsonObject)
         {
@@ -912,13 +930,13 @@ namespace AggroBird.Json
             throw new InvalidCastException();
         }
 
-        public static string Serialize(object value, int maxRecursion = 32)
+        public static string ToJson(object value, int maxRecursion = 32)
         {
             StringBuilder output = new StringBuilder(1024);
             SerializeRecursive(value, output, 0, maxRecursion);
             return output.ToString();
         }
-        public static void Serialize(object value, StringBuilder output, int maxRecursion = 32)
+        public static void ToJson(object value, StringBuilder output, int maxRecursion = 32)
         {
             if (output == null) throw new ArgumentNullException(nameof(output));
             SerializeRecursive(value, output, 0, maxRecursion);
