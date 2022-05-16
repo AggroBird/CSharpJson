@@ -877,7 +877,6 @@ namespace AggroBird.Json
                     string str = jsonObject.stringValue;
                     return DateTime.Parse(str, CultureInfo.InvariantCulture);
                 }
-                break;
             }
 
             if (targetType == typeof(JsonValue))
@@ -958,6 +957,7 @@ namespace AggroBird.Json
                     {
                         field.SetValue(obj, ReadRecursive(field.FieldType, kv.Value));
                     }
+                    throw new MissingFieldException($"Failed to find field '{kv.Key}' in type '{targetType.Name}'");
                 }
                 return obj;
             }
