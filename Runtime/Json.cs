@@ -404,6 +404,12 @@ namespace AggroBird.Json
         public static explicit operator JsonArray(JsonValue value) => value.arrayValue;
         public static explicit operator JsonObject(JsonValue value) => value.objectValue;
 
+        // Parsing constants
+        private const string DoubleFormat = "G17";
+        private const string TrueConstant = "true";
+        private const string FalseConstant = "false";
+        private const string NullConstant = "null";
+
 
         private object obj;
 
@@ -411,7 +417,7 @@ namespace AggroBird.Json
         {
             get
             {
-                return obj == null ? "null" : obj.GetType().Name;
+                return obj == null ? NullConstant : obj.GetType().Name;
             }
         }
 
@@ -429,7 +435,7 @@ namespace AggroBird.Json
         }
 
 
-        private sealed class JsonParser
+        private sealed class JsonReader
         {
             private enum TokenType
             {
@@ -445,7 +451,7 @@ namespace AggroBird.Json
                 Unknown = -1,
             }
 
-            public JsonParser(string str, StringBuilder stringBuffer, int maxRecursion)
+            public JsonReader(string str, StringBuilder stringBuffer, int maxRecursion)
             {
                 this.str = str;
                 this.stringBuffer = stringBuffer;
@@ -459,6 +465,7 @@ namespace AggroBird.Json
             private StringBuilder stringBuffer;
             private int pos = 0;
             private int lineNum = 1;
+            private int level = 0;
 
             private TokenType ParseNext(out JsonValue val)
             {
@@ -602,17 +609,17 @@ namespace AggroBird.Json
                                         return TokenType.Value;
                                     }
                                 }
-                                else if (sub == "true")
+                                else if (sub == TrueConstant)
                                 {
                                     val = new JsonValue(true, JsonType.Bool);
                                     return TokenType.Value;
                                 }
-                                else if (sub == "false")
+                                else if (sub == FalseConstant)
                                 {
                                     val = new JsonValue(false, JsonType.Bool);
                                     return TokenType.Value;
                                 }
-                                else if (sub == "null")
+                                else if (sub == NullConstant)
                                 {
                                     val = new JsonValue(null, JsonType.Null);
                                     return TokenType.Value;
@@ -661,7 +668,7 @@ namespace AggroBird.Json
                 }
             }
 
-            private JsonValue ParseObject(int level)
+            private JsonValue ParseObjectRecursive()
             {
                 if (level >= maxRecursion)
                 {
@@ -690,10 +697,10 @@ namespace AggroBird.Json
                             obj.Add(key.stringValue, val);
                             break;
                         case TokenType.BraceOpen:
-                            obj.Add(key.stringValue, ParseObject(level));
+                            obj.Add(key.stringValue, ParseObjectRecursive());
                             break;
                         case TokenType.BracketOpen:
-                            obj.Add(key.stringValue, ParseArray(level));
+                            obj.Add(key.stringValue, ParseArrayRecursive());
                             break;
 
                         default:
@@ -711,7 +718,7 @@ namespace AggroBird.Json
                 pos++;
                 return new JsonValue(obj, JsonType.Object);
             }
-            private JsonValue ParseArray(int level)
+            private JsonValue ParseArrayRecursive()
             {
                 if (level >= maxRecursion)
                 {
@@ -730,10 +737,10 @@ namespace AggroBird.Json
                             arr.Add(val);
                             break;
                         case TokenType.BraceOpen:
-                            arr.Add(ParseObject(level));
+                            arr.Add(ParseObjectRecursive());
                             break;
                         case TokenType.BracketOpen:
-                            arr.Add(ParseArray(level));
+                            arr.Add(ParseArrayRecursive());
                             break;
 
                         default:
@@ -752,16 +759,16 @@ namespace AggroBird.Json
                 return new JsonValue(arr, JsonType.Array);
             }
 
-            public JsonValue Deserialize()
+            public JsonValue Read()
             {
                 JsonValue result;
                 switch (ParseNext(out JsonValue val))
                 {
                     case TokenType.BraceOpen:
-                        result = ParseObject(0);
+                        result = ParseObjectRecursive();
                         break;
                     case TokenType.BracketOpen:
-                        result = ParseArray(0);
+                        result = ParseArrayRecursive();
                         break;
                     case TokenType.Value:
                     case TokenType.String:
@@ -784,7 +791,7 @@ namespace AggroBird.Json
         public static JsonValue FromJson(string str, StringBuilder stringBuffer = null, int maxRecursion = 128)
         {
             if (str == null) throw new ArgumentNullException(nameof(str));
-            return new JsonParser(str, stringBuffer, maxRecursion).Deserialize();
+            return new JsonReader(str, stringBuffer, maxRecursion).Read();
         }
 
         public static object FromJson(string str, Type targetType, StringBuilder stringBuffer = null, int maxRecursion = 128)
@@ -792,18 +799,18 @@ namespace AggroBird.Json
             if (str == null) throw new ArgumentNullException(nameof(str));
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
             JsonValue jsonObject = FromJson(str, stringBuffer, maxRecursion);
-            return DeserializeRecursive(targetType, jsonObject);
+            return ReadRecursive(targetType, jsonObject);
         }
         public static object FromJson(JsonValue jsonObject, Type targetType)
         {
             if (jsonObject == null) throw new ArgumentNullException(nameof(jsonObject));
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-            return DeserializeRecursive(targetType, jsonObject);
+            return ReadRecursive(targetType, jsonObject);
         }
         public static T FromJson<T>(string str, StringBuilder stringBuffer = null, int maxRecursion = 128) => (T)FromJson(str, typeof(T), stringBuffer, maxRecursion);
         public static T FromJson<T>(JsonValue jsonObject) => (T)FromJson(jsonObject, typeof(T));
 
-        private static object DeserializeRecursive(Type targetType, JsonValue jsonObject)
+        private static object ReadRecursive(Type targetType, JsonValue jsonObject)
         {
             if (jsonObject.isNull)
             {
@@ -876,7 +883,7 @@ namespace AggroBird.Json
                 Array obj = Array.CreateInstance(elementType, subObjects.Count);
                 for (int i = 0; i < subObjects.Count; i++)
                 {
-                    obj.SetValue(DeserializeRecursive(elementType, subObjects[i]), i);
+                    obj.SetValue(ReadRecursive(elementType, subObjects[i]), i);
                 }
                 return obj;
             }
@@ -900,7 +907,7 @@ namespace AggroBird.Json
                 Type valueType = arguments[1];
                 foreach (var kv in dictionary)
                 {
-                    obj.Add(kv.Key, DeserializeRecursive(valueType, kv.Value));
+                    obj.Add(kv.Key, ReadRecursive(valueType, kv.Value));
                 }
                 return obj;
             }
@@ -916,7 +923,7 @@ namespace AggroBird.Json
                 Type valueType = arguments[0];
                 for (int i = 0; i < subObjects.Count; i++)
                 {
-                    obj.Add(DeserializeRecursive(valueType, subObjects[i]));
+                    obj.Add(ReadRecursive(valueType, subObjects[i]));
                 }
                 return obj;
             }
@@ -933,7 +940,7 @@ namespace AggroBird.Json
                     FieldInfo field = targetType.GetField(kv.Key, BindingFlags.Instance | BindingFlags.Public);
                     if (field != null)
                     {
-                        field.SetValue(obj, DeserializeRecursive(field.FieldType, kv.Value));
+                        field.SetValue(obj, ReadRecursive(field.FieldType, kv.Value));
                     }
                 }
                 return obj;
@@ -943,246 +950,282 @@ namespace AggroBird.Json
         }
 
 
+        private sealed class JsonWriter
+        {
+            public JsonWriter(StringBuilder outputBuffer, int maxRecursion)
+            {
+                this.maxRecursion = maxRecursion;
+                this.outputBuffer = outputBuffer;
+            }
+
+            private const string AnonymousTypeName = "AnonymousType";
+            private const string UnicodePrefix = "\\u00";
+
+            private readonly int maxRecursion;
+            private StringBuilder outputBuffer;
+            private int level = 0;
+
+            public void Write(object value)
+            {
+                outputBuffer.Clear();
+                WriteRecursive(value);
+            }
+
+            private void WriteRecursive(object value)
+            {
+                if (level >= maxRecursion)
+                {
+                    throw new OverflowException($"Max recursion level reached ({maxRecursion})");
+                }
+                level++;
+
+                if (value is JsonValue asJsonValue)
+                {
+                    value = asJsonValue.obj;
+                }
+
+                // Null
+                if (value == null)
+                {
+                    outputBuffer.Append(NullConstant);
+                    return;
+                }
+
+                // Base types
+                Type type = value.GetType();
+                TypeCode typeCode = Type.GetTypeCode(type);
+                switch (typeCode)
+                {
+                    case TypeCode.String:
+                        WriteValue((string)value);
+                        return;
+                    case TypeCode.Char:
+                        WriteValue((char)value);
+                        return;
+                    case TypeCode.Boolean:
+                        WriteValue((bool)value);
+                        return;
+
+                    case TypeCode.SByte:
+                    case TypeCode.Byte:
+                    case TypeCode.Int16:
+                    case TypeCode.UInt16:
+                    case TypeCode.Int32:
+                    case TypeCode.UInt32:
+                    case TypeCode.Int64:
+                    case TypeCode.UInt64:
+                        if (type.IsEnum)
+                        {
+                            WriteEnumValue(value, typeCode);
+                            return;
+                        }
+                        goto case TypeCode.Decimal;
+
+                    case TypeCode.Single:
+                        WriteValue((float)value);
+                        return;
+                    case TypeCode.Double:
+                        WriteValue((double)value);
+                        return;
+                    case TypeCode.Decimal:
+                        WriteValue(value as IConvertible);
+                        return;
+                }
+
+                if (value is IDictionary dictionary)
+                {
+                    // Dictionaries/objects
+                    outputBuffer.Append('{');
+                    bool first = true;
+                    foreach (DictionaryEntry entry in dictionary)
+                    {
+                        if (!first) outputBuffer.Append(',');
+                        first = false;
+                        if (!(entry.Key is string key))
+                        {
+                            throw new InvalidCastException($"Dictionary key type has to be string");
+                        }
+                        WriteValue(entry.Key as string);
+                        outputBuffer.Append(':');
+                        WriteRecursive(entry.Value);
+                    }
+                    outputBuffer.Append('}');
+                    return;
+                }
+                else if (value is IEnumerable list)
+                {
+                    // Arrays
+                    outputBuffer.Append('[');
+                    bool first = true;
+                    foreach (object entry in list)
+                    {
+                        if (!first) outputBuffer.Append(',');
+                        first = false;
+                        WriteRecursive(entry);
+                    }
+                    outputBuffer.Append(']');
+                    return;
+                }
+                else
+                {
+                    // Structs/classes
+                    outputBuffer.Append('{');
+                    bool first = true;
+                    foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
+                    {
+                        if (!first) outputBuffer.Append(',');
+                        first = false;
+                        WriteValue(field.Name);
+                        outputBuffer.Append(':');
+                        WriteRecursive(field.GetValue(value));
+                    }
+                    if (IsAnonymousType(type))
+                    {
+                        foreach (PropertyInfo property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+                        {
+                            if (!property.CanRead) continue;
+                            if (!first) outputBuffer.Append(',');
+                            first = false;
+                            WriteValue(property.Name);
+                            outputBuffer.Append(':');
+                            WriteRecursive(property.GetValue(value));
+                        }
+                    }
+                    outputBuffer.Append('}');
+                    return;
+                }
+
+                throw new FormatException($"Failed to serialize field '{type}'");
+            }
+
+            private static bool IsAnonymousType(Type type)
+            {
+                return type.GetCustomAttributes(typeof(CompilerGeneratedAttribute), false).Length > 0 && type.FullName.Contains(AnonymousTypeName);
+            }
+
+            private bool WriteValue(char value)
+            {
+                // Escape unsupported control characters (as per JSON standard)
+                switch (value)
+                {
+                    case '\t':
+                        outputBuffer.Append('\\');
+                        outputBuffer.Append('t');
+                        return true;
+                    case '\n':
+                        outputBuffer.Append('\\');
+                        outputBuffer.Append('n');
+                        return true;
+                    case '\r':
+                        outputBuffer.Append('\\');
+                        outputBuffer.Append('r');
+                        return true;
+                    case '\f':
+                        outputBuffer.Append('\\');
+                        outputBuffer.Append('f');
+                        return true;
+                    case '\b':
+                        outputBuffer.Append('\\');
+                        outputBuffer.Append('b');
+                        return true;
+                    case '"':
+                        outputBuffer.Append('\\');
+                        outputBuffer.Append('\"');
+                        return true;
+                    case '\\':
+                        outputBuffer.Append('\\');
+                        outputBuffer.Append('\\');
+                        return true;
+                }
+
+                // Anything above 1f (space and onwards) can be represented as character,
+                // the output string will be converted to utf8 at save time
+                if (value >= '\u001f')
+                {
+                    outputBuffer.Append(value);
+                    return true;
+                }
+
+                return false;
+            }
+            private void WriteValue(string value)
+            {
+                outputBuffer.Append('"');
+                foreach (char c in value)
+                {
+                    if (!WriteValue(c))
+                    {
+                        // Handle unsupported characters
+                        outputBuffer.Append(UnicodePrefix);
+                        int num = c;
+                        outputBuffer.Append((char)(48 + (num >> 4)));
+                        num &= 0xF;
+                        outputBuffer.Append((char)((num < 10) ? (48 + num) : (97 + (num - 10))));
+                    }
+                }
+                outputBuffer.Append('"');
+            }
+            private void WriteValue(bool value)
+            {
+                outputBuffer.Append(value ? TrueConstant : FalseConstant);
+            }
+            private void WriteValue(float value)
+            {
+                outputBuffer.Append(value.ToString(DoubleFormat, CultureInfo.InvariantCulture));
+            }
+            private void WriteValue(double value)
+            {
+                outputBuffer.Append(value.ToString(DoubleFormat, CultureInfo.InvariantCulture));
+            }
+            private void WriteValue(IConvertible value)
+            {
+                outputBuffer.Append(value.ToString(CultureInfo.InvariantCulture));
+            }
+
+            private void WriteEnumValue(object value, TypeCode typeCode)
+            {
+                switch (typeCode)
+                {
+                    case TypeCode.SByte:
+                        outputBuffer.Append((sbyte)value);
+                        break;
+                    case TypeCode.Int16:
+                        outputBuffer.Append((short)value);
+                        break;
+                    case TypeCode.UInt16:
+                        outputBuffer.Append((ushort)value);
+                        break;
+                    case TypeCode.Int32:
+                        outputBuffer.Append((int)value);
+                        break;
+                    case TypeCode.Byte:
+                        outputBuffer.Append((byte)value);
+                        break;
+                    case TypeCode.UInt32:
+                        outputBuffer.Append((uint)value);
+                        break;
+                    case TypeCode.Int64:
+                        outputBuffer.Append((long)value);
+                        break;
+                    case TypeCode.UInt64:
+                        outputBuffer.Append((ulong)value);
+                        break;
+                    default:
+                        throw new InvalidOperationException($"Invalid type code for enum: '{typeCode}'");
+                }
+            }
+        }
+
         public static string ToJson(object value, int maxRecursion = 32)
         {
-            StringBuilder output = new StringBuilder(1024);
-            SerializeRecursive(value, output, 0, maxRecursion);
-            return output.ToString();
+            StringBuilder outputBuffer = new StringBuilder(1024);
+            new JsonWriter(outputBuffer, maxRecursion).Write(value);
+            return outputBuffer.ToString();
         }
-        public static void ToJson(object value, StringBuilder output, int maxRecursion = 32)
+        public static void ToJson(object value, StringBuilder outputBuffer, int maxRecursion = 32)
         {
-            if (output == null) throw new ArgumentNullException(nameof(output));
-            SerializeRecursive(value, output, 0, maxRecursion);
-        }
-
-        private static void SerializeRecursive(object value, StringBuilder output, int level, int maxRecursion)
-        {
-            if (level >= maxRecursion)
-            {
-                throw new OverflowException($"Max recursion level reached ({maxRecursion})");
-            }
-            level++;
-
-            if (value is JsonValue asJsonValue)
-            {
-                value = asJsonValue.obj;
-            }
-
-            // Null
-            if (value == null)
-            {
-                output.Append("null");
-                return;
-            }
-
-            // Base types
-            Type type = value.GetType();
-            TypeCode typeCode = Type.GetTypeCode(type);
-            switch (typeCode)
-            {
-                case TypeCode.String:
-                    SerializeValue((string)value, output);
-                    return;
-                case TypeCode.Char:
-                    SerializeValue((char)value, output);
-                    return;
-                case TypeCode.Boolean:
-                    SerializeValue((bool)value, output);
-                    return;
-
-                case TypeCode.SByte:
-                case TypeCode.Byte:
-                case TypeCode.Int16:
-                case TypeCode.UInt16:
-                case TypeCode.Int32:
-                case TypeCode.UInt32:
-                case TypeCode.Int64:
-                case TypeCode.UInt64:
-                    if (type.IsEnum)
-                    {
-                        SerializeEnumValue(value, typeCode, output);
-                        return;
-                    }
-                    goto case TypeCode.Decimal;
-
-                case TypeCode.Single:
-                    SerializeValue((float)value, output);
-                    return;
-                case TypeCode.Double:
-                    SerializeValue((double)value, output);
-                    return;
-                case TypeCode.Decimal:
-                    SerializeValue(value as IConvertible, output);
-                    return;
-            }
-
-            if (value is IDictionary dictionary)
-            {
-                // Dictionaries/objects
-                output.Append('{');
-                bool first = true;
-                foreach (DictionaryEntry entry in dictionary)
-                {
-                    if (!first) output.Append(',');
-                    first = false;
-                    if (!(entry.Key is string key))
-                    {
-                        throw new InvalidCastException($"Dictionary key type has to be string");
-                    }
-                    SerializeValue(entry.Key as string, output);
-                    output.Append(':');
-                    SerializeRecursive(entry.Value, output, level, maxRecursion);
-                }
-                output.Append('}');
-                return;
-            }
-            else if (value is IEnumerable list)
-            {
-                // Arrays
-                output.Append('[');
-                bool first = true;
-                foreach (object entry in list)
-                {
-                    if (!first) output.Append(',');
-                    first = false;
-                    SerializeRecursive(entry, output, level, maxRecursion);
-                }
-                output.Append(']');
-                return;
-            }
-            else
-            {
-                // Structs/classes
-                output.Append('{');
-                bool first = true;
-                foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
-                {
-                    if (!first) output.Append(',');
-                    first = false;
-                    SerializeValue(field.Name, output);
-                    output.Append(':');
-                    SerializeRecursive(field.GetValue(value), output, level, maxRecursion);
-                }
-                if (IsAnonymousType(type))
-                {
-                    foreach (PropertyInfo property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
-                    {
-                        if (!property.CanRead) continue;
-                        if (!first) output.Append(',');
-                        first = false;
-                        SerializeValue(property.Name, output);
-                        output.Append(':');
-                        SerializeRecursive(property.GetValue(value), output, level, maxRecursion);
-                    }
-                }
-                output.Append('}');
-                return;
-            }
-
-            throw new FormatException($"Failed to serialize field '{type}'");
-        }
-        private static bool IsAnonymousType(Type type)
-        {
-            return type.GetCustomAttributes(typeof(CompilerGeneratedAttribute), false).Length > 0 && type.FullName.Contains("AnonymousType");
-        }
-
-        private static bool SerializeValue(char value, StringBuilder output)
-        {
-            switch (value)
-            {
-                case '\t':
-                    output.Append("\\t");
-                    return true;
-                case '\n':
-                    output.Append("\\n");
-                    return true;
-                case '\r':
-                    output.Append("\\r");
-                    return true;
-                case '\f':
-                    output.Append("\\f");
-                    return true;
-                case '\b':
-                    output.Append("\\b");
-                    return true;
-                case '"':
-                    output.Append("\\\"");
-                    return true;
-                case '\\':
-                    output.Append("\\\\");
-                    return true;
-            }
-            if (value > '\u001f')
-            {
-                output.Append(value);
-                return true;
-            }
-            return false;
-        }
-        private static void SerializeValue(string value, StringBuilder output)
-        {
-            output.Append('"');
-            foreach (char c in value)
-            {
-                if (!SerializeValue(c, output))
-                {
-                    output.Append("\\u00");
-                    int num = c;
-                    output.Append((char)(48 + (num >> 4)));
-                    num &= 0xF;
-                    output.Append((char)((num < 10) ? (48 + num) : (97 + (num - 10))));
-                }
-            }
-            output.Append('"');
-        }
-        private static void SerializeValue(bool value, StringBuilder output)
-        {
-            output.Append(value ? "true" : "false");
-        }
-        private static void SerializeValue(float value, StringBuilder output)
-        {
-            output.Append(value.ToString("r", CultureInfo.InvariantCulture));
-        }
-        private static void SerializeValue(double value, StringBuilder output)
-        {
-            output.Append(value.ToString("r", CultureInfo.InvariantCulture));
-        }
-        private static void SerializeValue(IConvertible value, StringBuilder output)
-        {
-            output.Append(value.ToString(CultureInfo.InvariantCulture));
-        }
-
-        private static void SerializeEnumValue(object value, TypeCode typeCode, StringBuilder output)
-        {
-            switch (typeCode)
-            {
-                case TypeCode.SByte:
-                    output.Append((sbyte)value);
-                    break;
-                case TypeCode.Int16:
-                    output.Append((short)value);
-                    break;
-                case TypeCode.UInt16:
-                    output.Append((ushort)value);
-                    break;
-                case TypeCode.Int32:
-                    output.Append((int)value);
-                    break;
-                case TypeCode.Byte:
-                    output.Append((byte)value);
-                    break;
-                case TypeCode.UInt32:
-                    output.Append((uint)value);
-                    break;
-                case TypeCode.Int64:
-                    output.Append((long)value);
-                    break;
-                case TypeCode.UInt64:
-                    output.Append((ulong)value);
-                    break;
-                default:
-                    throw new InvalidOperationException($"Invalid type code for enum: '{typeCode}'");
-            }
+            if (outputBuffer == null) throw new ArgumentNullException(nameof(outputBuffer));
+            new JsonWriter(outputBuffer, maxRecursion).Write(value);
         }
     }
 }
