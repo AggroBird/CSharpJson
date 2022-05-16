@@ -12,20 +12,20 @@ public struct TestStruct
 }
 
 string json = "{ \"i\": 15, \"j\": 27.5, \"k\": \"foo\" }";
-TestStruct testStruct = JsonValue.Deserialize<TestStruct>(json);
+TestStruct testStruct = JsonValue.FromJson<TestStruct>(json);
 
 // Decide what to do with k depending on its type
-if (testStruct.k.isNumber)
+switch (testStruct.k.type)
 {
-	Console.WriteLine($"Number: {(float)testStruct.k}");
-}
-else if (testStruct.k.isString)
-{
-	Console.WriteLine($"String: {(string)testStruct.k}");
-}
-else if (testStruct.k.isBool)
-{
-	Console.WriteLine($"Boolean: {(bool)testStruct.k}");
+    case JsonType.Number:
+        Console.WriteLine($"Number: {(float)testStruct.k}");
+        break;
+    case JsonType.String:
+        Console.WriteLine($"String: {(string)testStruct.k}");
+        break;
+    case JsonType.Bool:
+        Console.WriteLine($"Boolean: {(bool)testStruct.k}");
+        break;
 }
 ```
 
