@@ -457,9 +457,9 @@ namespace AggroBird.Json
             public JsonReader(string str, StringBuilder stringBuffer, int maxRecursion)
             {
                 this.str = str;
-                this.stringBuffer = stringBuffer;
                 len = str.Length;
-                this.maxRecursion = maxRecursion;
+                this.stringBuffer = stringBuffer;
+                this.maxRecursion = maxRecursion > 1 ? maxRecursion : 1;
             }
 
             private readonly string str;
@@ -963,7 +963,7 @@ namespace AggroBird.Json
         {
             public JsonWriter(StringBuilder outputBuffer, int maxRecursion)
             {
-                this.maxRecursion = maxRecursion;
+                this.maxRecursion = maxRecursion > 1 ? maxRecursion : 1;
                 this.outputBuffer = outputBuffer;
             }
 
