@@ -156,24 +156,6 @@ namespace AggroBird.Json
             val = 0;
             return false;
         }
-        public bool TryGetValue(out decimal val)
-        {
-            try
-            {
-                if (obj is double d)
-                {
-                    val = Convert.ToDecimal(d);
-                    return true;
-                }
-            }
-            catch (Exception)
-            {
-
-            }
-
-            val = 0;
-            return false;
-        }
         public bool TryGetValue(out string val)
         {
             if (obj is string str)
@@ -222,7 +204,7 @@ namespace AggroBird.Json
             {
                 if (!TryGetValue(out int val))
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to int");
+                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(int)}'");
                 }
                 return val;
             }
@@ -238,7 +220,7 @@ namespace AggroBird.Json
             {
                 if (!TryGetValue(out uint val))
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to uint");
+                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(uint)}'");
                 }
                 return val;
             }
@@ -254,7 +236,7 @@ namespace AggroBird.Json
             {
                 if (!TryGetValue(out long val))
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to long");
+                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(long)}'");
                 }
                 return val;
             }
@@ -270,7 +252,7 @@ namespace AggroBird.Json
             {
                 if (!TryGetValue(out ulong val))
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to ulong");
+                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(ulong)}'");
                 }
                 return val;
             }
@@ -286,7 +268,7 @@ namespace AggroBird.Json
             {
                 if (!TryGetValue(out float val))
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to float");
+                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(float)}'");
                 }
                 return val;
             }
@@ -302,7 +284,7 @@ namespace AggroBird.Json
             {
                 if (!TryGetValue(out double val))
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to double");
+                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(double)}'");
                 }
                 return val;
             }
@@ -312,29 +294,13 @@ namespace AggroBird.Json
                 type = JsonType.Number;
             }
         }
-        public decimal decimalValue
-        {
-            get
-            {
-                if (!TryGetValue(out decimal val))
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to decimal");
-                }
-                return val;
-            }
-            set
-            {
-                obj = (double)value;
-                type = JsonType.Number;
-            }
-        }
         public string stringValue
         {
             get
             {
                 if (!isString)
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to string");
+                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(string)}'");
                 }
                 return (string)obj;
             }
@@ -350,7 +316,7 @@ namespace AggroBird.Json
             {
                 if (!isBool)
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to bool");
+                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(bool)}'");
                 }
                 return (bool)obj;
             }
@@ -366,7 +332,7 @@ namespace AggroBird.Json
             {
                 if (!TryGetValue(out JsonArray val))
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to JsonArray");
+                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(JsonArray)}'");
                 }
                 return val;
             }
@@ -382,7 +348,7 @@ namespace AggroBird.Json
             {
                 if (!TryGetValue(out JsonObject val))
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to JsonObject");
+                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(JsonObject)}'");
                 }
                 return val;
             }
@@ -400,7 +366,6 @@ namespace AggroBird.Json
         public static explicit operator ulong(JsonValue value) => value.ulongValue;
         public static explicit operator float(JsonValue value) => value.floatValue;
         public static explicit operator double(JsonValue value) => value.doubleValue;
-        public static explicit operator decimal(JsonValue value) => value.decimalValue;
         public static explicit operator string(JsonValue value) => value.stringValue;
         public static explicit operator bool(JsonValue value) => value.boolValue;
         public static explicit operator JsonArray(JsonValue value) => value.arrayValue;
@@ -840,7 +805,7 @@ namespace AggroBird.Json
                         {
                             return str[0];
                         }
-                        throw new InvalidCastException("Attempted to convert a string to a singular character");
+                        throw new InvalidCastException("Attempted to convert a multi-character string to a singular character");
                     }
                     return str;
                 }
@@ -869,14 +834,9 @@ namespace AggroBird.Json
                     return jsonObject.floatValue;
                 case TypeCode.Double:
                     return jsonObject.doubleValue;
-                case TypeCode.Decimal:
-                    return jsonObject.decimalValue;
 
                 case TypeCode.DateTime:
-                {
-                    string str = jsonObject.stringValue;
-                    return DateTime.Parse(str, CultureInfo.InvariantCulture);
-                }
+                    return DateTime.Parse(jsonObject.stringValue, CultureInfo.InvariantCulture);
             }
 
             if (targetType == typeof(JsonValue))
@@ -902,30 +862,6 @@ namespace AggroBird.Json
                 }
                 return obj;
             }
-            else if (typeof(IDictionary).IsAssignableFrom(targetType))
-            {
-                Type[] arguments = targetType.GetGenericArguments();
-                if (arguments.Length < 2)
-                {
-                    throw new InvalidCastException($"Unable to derive generic types for dictionary '{targetType}'");
-                }
-                if (arguments[0] != typeof(string))
-                {
-                    throw new InvalidCastException($"Dictionary key type has to be string");
-                }
-                JsonObject dictionary = jsonObject.obj as JsonObject;
-                if (dictionary == null)
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{jsonObject.obj.GetType()}' to '{typeof(JsonObject)}'");
-                }
-                IDictionary obj = Activator.CreateInstance(targetType) as IDictionary;
-                Type valueType = arguments[1];
-                foreach (var kv in dictionary)
-                {
-                    obj.Add(kv.Key, ReadRecursive(valueType, kv.Value));
-                }
-                return obj;
-            }
             else if (typeof(IList).IsAssignableFrom(targetType))
             {
                 Type[] arguments = targetType.GetGenericArguments();
@@ -942,12 +878,36 @@ namespace AggroBird.Json
                 }
                 return obj;
             }
+            else if (typeof(IDictionary).IsAssignableFrom(targetType))
+            {
+                Type[] arguments = targetType.GetGenericArguments();
+                if (arguments.Length < 2)
+                {
+                    throw new InvalidCastException($"Unable to derive generic types for dictionary '{targetType}'");
+                }
+                if (arguments[0] != typeof(string))
+                {
+                    throw new InvalidCastException($"Dictionary key type has to be string");
+                }
+                JsonObject dictionary = jsonObject.obj as JsonObject;
+                if (dictionary == null)
+                {
+                    throw new InvalidCastException($"Invalid Json cast: '{jsonObject.internalObjectTypeName}' to '{typeof(JsonObject)}'");
+                }
+                IDictionary obj = Activator.CreateInstance(targetType) as IDictionary;
+                Type valueType = arguments[1];
+                foreach (var kv in dictionary)
+                {
+                    obj.Add(kv.Key, ReadRecursive(valueType, kv.Value));
+                }
+                return obj;
+            }
             else
             {
                 JsonObject dictionary = jsonObject.obj as JsonObject;
                 if (dictionary == null)
                 {
-                    throw new InvalidCastException($"Invalid Json cast: '{jsonObject.obj.GetType()}' to '{typeof(JsonObject)}'");
+                    throw new InvalidCastException($"Invalid Json cast: '{jsonObject.internalObjectTypeName}' to '{typeof(JsonObject)}'");
                 }
                 object obj = Activator.CreateInstance(targetType);
                 foreach (var kv in dictionary)
@@ -955,14 +915,14 @@ namespace AggroBird.Json
                     FieldInfo field = targetType.GetField(kv.Key, BindingFlags.Instance | BindingFlags.Public);
                     if (field == null)
                     {
-                        throw new MissingFieldException($"Failed to find field '{kv.Key}' in type '{targetType.Name}'");
+                        throw new MissingFieldException($"Failed to find field '{kv.Key}' in type '{targetType}'");
                     }
                     field.SetValue(obj, ReadRecursive(field.FieldType, kv.Value));
                 }
                 return obj;
             }
 
-            throw new InvalidCastException();
+            throw new InvalidCastException($"Invalid Json cast: '{jsonObject.internalObjectTypeName}' to '{targetType}'");
         }
 
 
