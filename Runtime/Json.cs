@@ -406,6 +406,7 @@ namespace AggroBird.Json
 
         // Parsing constants
         private const string DoubleFormat = "G17";
+        private const string DateTimeFormat = "o";
         private const string TrueConstant = "true";
         private const string FalseConstant = "false";
         private const string NullConstant = "null";
@@ -822,20 +823,19 @@ namespace AggroBird.Json
             {
                 case TypeCode.String:
                 case TypeCode.Char:
-                    if (jsonObject.TryGetValue(out string stringValue))
+                {
+                    string str = jsonObject.stringValue;
+                    if (typeCode == TypeCode.Char)
                     {
-                        if (typeCode == TypeCode.Char)
+                        if (str.Length == 1)
                         {
-                            if (stringValue.Length == 1)
-                            {
-                                return stringValue[0];
-                            }
-                            throw new InvalidCastException("Attempted to convert a string to a singular character");
+                            return str[0];
                         }
-
-                        return stringValue;
+                        throw new InvalidCastException("Attempted to convert a string to a singular character");
                     }
-                    break;
+                    return str;
+                }
+
                 case TypeCode.Boolean:
                     return jsonObject.boolValue;
 
@@ -862,6 +862,13 @@ namespace AggroBird.Json
                     return jsonObject.doubleValue;
                 case TypeCode.Decimal:
                     return jsonObject.decimalValue;
+
+                case TypeCode.DateTime:
+                {
+                    string str = jsonObject.stringValue;
+                    return DateTime.Parse(str, CultureInfo.InvariantCulture);
+                }
+                break;
             }
 
             if (targetType == typeof(JsonValue))
@@ -1028,17 +1035,20 @@ namespace AggroBird.Json
                     case TypeCode.Double:
                         WriteValue((double)value);
                         return;
+                    case TypeCode.DateTime:
+                        WriteValue(((DateTime)value).ToString(DateTimeFormat, CultureInfo.InvariantCulture));
+                        return;
                 }
 
+                bool written = false;
                 if (value is IDictionary dictionary)
                 {
                     // Dictionaries/objects
                     outputBuffer.Append('{');
-                    bool first = true;
                     foreach (DictionaryEntry entry in dictionary)
                     {
-                        if (!first) outputBuffer.Append(',');
-                        first = false;
+                        if (written) outputBuffer.Append(',');
+                        written = true;
                         if (!(entry.Key is string key))
                         {
                             throw new InvalidCastException($"Dictionary key type has to be string");
@@ -1054,11 +1064,10 @@ namespace AggroBird.Json
                 {
                     // Arrays
                     outputBuffer.Append('[');
-                    bool first = true;
                     foreach (object entry in list)
                     {
-                        if (!first) outputBuffer.Append(',');
-                        first = false;
+                        if (written) outputBuffer.Append(',');
+                        written = true;
                         WriteRecursive(entry);
                     }
                     outputBuffer.Append(']');
@@ -1068,22 +1077,22 @@ namespace AggroBird.Json
                 {
                     // Structs/classes
                     outputBuffer.Append('{');
-                    bool first = true;
                     foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
                     {
-                        if (!first) outputBuffer.Append(',');
-                        first = false;
+                        if (written) outputBuffer.Append(',');
+                        written = true;
                         WriteValue(field.Name);
                         outputBuffer.Append(':');
                         WriteRecursive(field.GetValue(value));
                     }
                     if (IsAnonymousType(type))
                     {
+                        // Read properties (anonymous types only)
                         foreach (PropertyInfo property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
                         {
                             if (!property.CanRead) continue;
-                            if (!first) outputBuffer.Append(',');
-                            first = false;
+                            if (written) outputBuffer.Append(',');
+                            written = true;
                             WriteValue(property.Name);
                             outputBuffer.Append(':');
                             WriteRecursive(property.GetValue(value));
