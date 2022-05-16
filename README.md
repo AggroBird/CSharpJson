@@ -31,4 +31,4 @@ else if (testStruct.k.isBool)
 
 The JsonValue class uses boxing to store its values and reflection to serialize struct fields.
 
-The parser is tested using the parsing test files from [Parsing JSON is a Minefield](https://seriot.ch/projects/parsing_json.html). Currently it passes all the accept cases except duplicate keys, since C# dictionaries throw when adding duplicate keys. From the reject cases, some invalid number formats are accepted regardless due to C#'s double.TryParse being more forgiving than the JSON standard.
+The parser is tested against the parsing test files from [Parsing JSON is a Minefield](https://seriot.ch/projects/parsing_json.html). Currently it passes all accept cases except duplicate keys, since C# dictionaries throw when adding duplicate keys. From the reject cases, some invalid number formats are accepted due to C#'s double.TryParse being more forgiving than the JSON standard.
