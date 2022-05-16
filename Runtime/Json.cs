@@ -506,8 +506,12 @@ namespace AggroBird.Json
                         case ':': return TokenType.Colon;
                         case '"':
                         {
+                            if (stringBuffer == null)
+                                stringBuffer = new StringBuilder(256);
+                            else
+                                stringBuffer.Clear();
+
                             // Iterate string characters
-                            stringBuffer = stringBuffer ?? new StringBuilder(256);
                             for (; pos < len; pos++)
                             {
                                 c = str[pos];
@@ -567,8 +571,8 @@ namespace AggroBird.Json
                                 {
                                     // End of string
                                     string str = stringBuffer.Length > 0 ? stringBuffer.ToString() : string.Empty;
+
                                     val = new JsonValue(str, JsonType.String);
-                                    stringBuffer.Clear();
                                     pos++;
                                     return TokenType.String;
                                 }
@@ -791,17 +795,17 @@ namespace AggroBird.Json
             }
         }
 
-        public static JsonValue FromJson(string str, StringBuilder stringBuffer = null, int maxRecursion = ReadMaxRecursion)
+        public static JsonValue FromJson(string str, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null)
         {
             if (str == null) throw new ArgumentNullException(nameof(str));
             return new JsonReader(str, stringBuffer, maxRecursion).Read();
         }
 
-        public static object FromJson(string str, Type targetType, StringBuilder stringBuffer = null, int maxRecursion = ReadMaxRecursion)
+        public static object FromJson(string str, Type targetType, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null)
         {
             if (str == null) throw new ArgumentNullException(nameof(str));
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-            JsonValue jsonObject = FromJson(str, stringBuffer, maxRecursion);
+            JsonValue jsonObject = FromJson(str, maxRecursion, stringBuffer);
             return ReadRecursive(targetType, jsonObject);
         }
         public static object FromJson(JsonValue jsonObject, Type targetType)
@@ -810,7 +814,7 @@ namespace AggroBird.Json
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
             return ReadRecursive(targetType, jsonObject);
         }
-        public static T FromJson<T>(string str, StringBuilder stringBuffer = null, int maxRecursion = ReadMaxRecursion) => (T)FromJson(str, typeof(T), stringBuffer, maxRecursion);
+        public static T FromJson<T>(string str, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null) => (T)FromJson(str, typeof(T), maxRecursion, stringBuffer);
         public static T FromJson<T>(JsonValue jsonObject) => (T)FromJson(jsonObject, typeof(T));
 
         private static object ReadRecursive(Type targetType, JsonValue jsonObject)
@@ -961,22 +965,21 @@ namespace AggroBird.Json
 
         private sealed class JsonWriter
         {
-            public JsonWriter(StringBuilder outputBuffer, int maxRecursion)
+            public JsonWriter(StringBuilder stringBuffer, int maxRecursion)
             {
                 this.maxRecursion = maxRecursion > 1 ? maxRecursion : 1;
-                this.outputBuffer = outputBuffer;
+                this.stringBuffer = stringBuffer;
             }
 
             private const string AnonymousTypeName = "AnonymousType";
             private const string UnicodePrefix = "\\u00";
 
             private readonly int maxRecursion;
-            private StringBuilder outputBuffer;
+            private StringBuilder stringBuffer;
             private int level = 0;
 
             public void Write(object value)
             {
-                outputBuffer.Clear();
                 WriteRecursive(value);
             }
 
@@ -996,7 +999,7 @@ namespace AggroBird.Json
                 // Null
                 if (value == null)
                 {
-                    outputBuffer.Append(NullConstant);
+                    stringBuffer.Append(NullConstant);
                     return;
                 }
 
@@ -1028,7 +1031,7 @@ namespace AggroBird.Json
                             WriteEnumValue(value, typeCode);
                             return;
                         }
-                        outputBuffer.Append(value.ToString());
+                        stringBuffer.Append(value.ToString());
                         return;
 
                     case TypeCode.Single:
@@ -1046,45 +1049,45 @@ namespace AggroBird.Json
                 if (value is IDictionary dictionary)
                 {
                     // Dictionaries/objects
-                    outputBuffer.Append('{');
+                    stringBuffer.Append('{');
                     foreach (DictionaryEntry entry in dictionary)
                     {
-                        if (written) outputBuffer.Append(',');
+                        if (written) stringBuffer.Append(',');
                         written = true;
                         if (!(entry.Key is string key))
                         {
                             throw new InvalidCastException($"Dictionary key type has to be string");
                         }
                         WriteValue(entry.Key as string);
-                        outputBuffer.Append(':');
+                        stringBuffer.Append(':');
                         WriteRecursive(entry.Value);
                     }
-                    outputBuffer.Append('}');
+                    stringBuffer.Append('}');
                     return;
                 }
                 else if (value is IEnumerable list)
                 {
                     // Arrays
-                    outputBuffer.Append('[');
+                    stringBuffer.Append('[');
                     foreach (object entry in list)
                     {
-                        if (written) outputBuffer.Append(',');
+                        if (written) stringBuffer.Append(',');
                         written = true;
                         WriteRecursive(entry);
                     }
-                    outputBuffer.Append(']');
+                    stringBuffer.Append(']');
                     return;
                 }
                 else
                 {
                     // Structs/classes
-                    outputBuffer.Append('{');
+                    stringBuffer.Append('{');
                     foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
                     {
-                        if (written) outputBuffer.Append(',');
+                        if (written) stringBuffer.Append(',');
                         written = true;
                         WriteValue(field.Name);
-                        outputBuffer.Append(':');
+                        stringBuffer.Append(':');
                         WriteRecursive(field.GetValue(value));
                     }
                     if (IsAnonymousType(type))
@@ -1093,14 +1096,14 @@ namespace AggroBird.Json
                         foreach (PropertyInfo property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
                         {
                             if (!property.CanRead) continue;
-                            if (written) outputBuffer.Append(',');
+                            if (written) stringBuffer.Append(',');
                             written = true;
                             WriteValue(property.Name);
-                            outputBuffer.Append(':');
+                            stringBuffer.Append(':');
                             WriteRecursive(property.GetValue(value));
                         }
                     }
-                    outputBuffer.Append('}');
+                    stringBuffer.Append('}');
                     return;
                 }
 
@@ -1118,32 +1121,32 @@ namespace AggroBird.Json
                 switch (value)
                 {
                     case '\t':
-                        outputBuffer.Append('\\');
-                        outputBuffer.Append('t');
+                        stringBuffer.Append('\\');
+                        stringBuffer.Append('t');
                         return true;
                     case '\n':
-                        outputBuffer.Append('\\');
-                        outputBuffer.Append('n');
+                        stringBuffer.Append('\\');
+                        stringBuffer.Append('n');
                         return true;
                     case '\r':
-                        outputBuffer.Append('\\');
-                        outputBuffer.Append('r');
+                        stringBuffer.Append('\\');
+                        stringBuffer.Append('r');
                         return true;
                     case '\f':
-                        outputBuffer.Append('\\');
-                        outputBuffer.Append('f');
+                        stringBuffer.Append('\\');
+                        stringBuffer.Append('f');
                         return true;
                     case '\b':
-                        outputBuffer.Append('\\');
-                        outputBuffer.Append('b');
+                        stringBuffer.Append('\\');
+                        stringBuffer.Append('b');
                         return true;
                     case '"':
-                        outputBuffer.Append('\\');
-                        outputBuffer.Append('\"');
+                        stringBuffer.Append('\\');
+                        stringBuffer.Append('\"');
                         return true;
                     case '\\':
-                        outputBuffer.Append('\\');
-                        outputBuffer.Append('\\');
+                        stringBuffer.Append('\\');
+                        stringBuffer.Append('\\');
                         return true;
                 }
 
@@ -1151,7 +1154,7 @@ namespace AggroBird.Json
                 // the output string will be converted to utf8 at save time
                 if (value >= '\u001f')
                 {
-                    outputBuffer.Append(value);
+                    stringBuffer.Append(value);
                     return true;
                 }
 
@@ -1159,32 +1162,32 @@ namespace AggroBird.Json
             }
             private void WriteValue(string value)
             {
-                outputBuffer.Append('"');
+                stringBuffer.Append('"');
                 foreach (char c in value)
                 {
                     if (!WriteValue(c))
                     {
                         // Handle unsupported characters
-                        outputBuffer.Append(UnicodePrefix);
+                        stringBuffer.Append(UnicodePrefix);
                         int num = c;
-                        outputBuffer.Append((char)(48 + (num >> 4)));
+                        stringBuffer.Append((char)(48 + (num >> 4)));
                         num &= 0xF;
-                        outputBuffer.Append((char)((num < 10) ? (48 + num) : (97 + (num - 10))));
+                        stringBuffer.Append((char)((num < 10) ? (48 + num) : (97 + (num - 10))));
                     }
                 }
-                outputBuffer.Append('"');
+                stringBuffer.Append('"');
             }
             private void WriteValue(bool value)
             {
-                outputBuffer.Append(value ? TrueConstant : FalseConstant);
+                stringBuffer.Append(value ? TrueConstant : FalseConstant);
             }
             private void WriteValue(float value)
             {
-                outputBuffer.Append(value.ToString(DoubleFormat, CultureInfo.InvariantCulture));
+                stringBuffer.Append(value.ToString(DoubleFormat, CultureInfo.InvariantCulture));
             }
             private void WriteValue(double value)
             {
-                outputBuffer.Append(value.ToString(DoubleFormat, CultureInfo.InvariantCulture));
+                stringBuffer.Append(value.ToString(DoubleFormat, CultureInfo.InvariantCulture));
             }
 
             private void WriteEnumValue(object value, TypeCode typeCode)
@@ -1192,28 +1195,28 @@ namespace AggroBird.Json
                 switch (typeCode)
                 {
                     case TypeCode.SByte:
-                        outputBuffer.Append((sbyte)value);
+                        stringBuffer.Append((sbyte)value);
                         break;
                     case TypeCode.Int16:
-                        outputBuffer.Append((short)value);
+                        stringBuffer.Append((short)value);
                         break;
                     case TypeCode.UInt16:
-                        outputBuffer.Append((ushort)value);
+                        stringBuffer.Append((ushort)value);
                         break;
                     case TypeCode.Int32:
-                        outputBuffer.Append((int)value);
+                        stringBuffer.Append((int)value);
                         break;
                     case TypeCode.Byte:
-                        outputBuffer.Append((byte)value);
+                        stringBuffer.Append((byte)value);
                         break;
                     case TypeCode.UInt32:
-                        outputBuffer.Append((uint)value);
+                        stringBuffer.Append((uint)value);
                         break;
                     case TypeCode.Int64:
-                        outputBuffer.Append((long)value);
+                        stringBuffer.Append((long)value);
                         break;
                     case TypeCode.UInt64:
-                        outputBuffer.Append((ulong)value);
+                        stringBuffer.Append((ulong)value);
                         break;
                     default:
                         throw new InvalidOperationException($"Invalid type code for enum: '{typeCode}'");
@@ -1221,16 +1224,22 @@ namespace AggroBird.Json
             }
         }
 
-        public static string ToJson(object value, int maxRecursion = WriteMaxRecursion)
+        public static string ToJson(object value, int maxRecursion = WriteMaxRecursion, StringBuilder stringBuffer = null)
         {
-            StringBuilder outputBuffer = new StringBuilder(1024);
-            new JsonWriter(outputBuffer, maxRecursion).Write(value);
-            return outputBuffer.ToString();
-        }
-        public static void ToJson(object value, StringBuilder outputBuffer, int maxRecursion = WriteMaxRecursion)
-        {
-            if (outputBuffer == null) throw new ArgumentNullException(nameof(outputBuffer));
-            new JsonWriter(outputBuffer, maxRecursion).Write(value);
+            if (stringBuffer == null)
+            {
+                stringBuffer = new StringBuilder(1024);
+            }
+            else
+            {
+                stringBuffer.Clear();
+            }
+
+            new JsonWriter(stringBuffer, maxRecursion).Write(value);
+
+            string result = stringBuffer.ToString();
+            stringBuffer.Clear();
+            return result;
         }
     }
 }
