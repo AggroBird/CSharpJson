@@ -472,7 +472,6 @@ namespace AggroBird.Json
             private StringBuilder stringBuffer;
             private int pos = 0;
             private int lineNum = 1;
-            private int level = 0;
 
             private TokenType ParseNext(out JsonValue val)
             {
@@ -679,7 +678,7 @@ namespace AggroBird.Json
                 }
             }
 
-            private JsonValue ParseObjectRecursive()
+            private JsonValue ParseObjectRecursive(int level)
             {
                 if (level >= maxRecursion)
                 {
@@ -708,10 +707,10 @@ namespace AggroBird.Json
                             obj.Add(key.stringValue, val);
                             break;
                         case TokenType.BraceOpen:
-                            obj.Add(key.stringValue, ParseObjectRecursive());
+                            obj.Add(key.stringValue, ParseObjectRecursive(level));
                             break;
                         case TokenType.BracketOpen:
-                            obj.Add(key.stringValue, ParseArrayRecursive());
+                            obj.Add(key.stringValue, ParseArrayRecursive(level));
                             break;
 
                         default:
@@ -729,7 +728,7 @@ namespace AggroBird.Json
                 pos++;
                 return new JsonValue(obj, JsonType.Object);
             }
-            private JsonValue ParseArrayRecursive()
+            private JsonValue ParseArrayRecursive(int level)
             {
                 if (level >= maxRecursion)
                 {
@@ -748,10 +747,10 @@ namespace AggroBird.Json
                             arr.Add(val);
                             break;
                         case TokenType.BraceOpen:
-                            arr.Add(ParseObjectRecursive());
+                            arr.Add(ParseObjectRecursive(level));
                             break;
                         case TokenType.BracketOpen:
-                            arr.Add(ParseArrayRecursive());
+                            arr.Add(ParseArrayRecursive(level));
                             break;
 
                         default:
@@ -776,10 +775,10 @@ namespace AggroBird.Json
                 switch (ParseNext(out JsonValue val))
                 {
                     case TokenType.BraceOpen:
-                        result = ParseObjectRecursive();
+                        result = ParseObjectRecursive(0);
                         break;
                     case TokenType.BracketOpen:
-                        result = ParseArrayRecursive();
+                        result = ParseArrayRecursive(0);
                         break;
                     case TokenType.Value:
                     case TokenType.String:
@@ -980,14 +979,13 @@ namespace AggroBird.Json
 
             private readonly int maxRecursion;
             private StringBuilder stringBuffer;
-            private int level = 0;
 
             public void Write(object value)
             {
-                WriteRecursive(value);
+                WriteRecursive(value, 0);
             }
 
-            private void WriteRecursive(object value)
+            private void WriteRecursive(object value, int level)
             {
                 if (level >= maxRecursion)
                 {
@@ -1064,7 +1062,7 @@ namespace AggroBird.Json
                         }
                         WriteValue(entry.Key as string);
                         stringBuffer.Append(':');
-                        WriteRecursive(entry.Value);
+                        WriteRecursive(entry.Value, level);
                     }
                     stringBuffer.Append('}');
                     return;
@@ -1077,7 +1075,7 @@ namespace AggroBird.Json
                     {
                         if (written) stringBuffer.Append(',');
                         written = true;
-                        WriteRecursive(entry);
+                        WriteRecursive(entry, level);
                     }
                     stringBuffer.Append(']');
                     return;
@@ -1092,7 +1090,7 @@ namespace AggroBird.Json
                         written = true;
                         WriteValue(field.Name);
                         stringBuffer.Append(':');
-                        WriteRecursive(field.GetValue(value));
+                        WriteRecursive(field.GetValue(value), level);
                     }
                     if (IsAnonymousType(type))
                     {
@@ -1104,7 +1102,7 @@ namespace AggroBird.Json
                             written = true;
                             WriteValue(property.Name);
                             stringBuffer.Append(':');
-                            WriteRecursive(property.GetValue(value));
+                            WriteRecursive(property.GetValue(value), level);
                         }
                     }
                     stringBuffer.Append('}');
