@@ -953,11 +953,11 @@ namespace AggroBird.Json
                 foreach (var kv in dictionary)
                 {
                     FieldInfo field = targetType.GetField(kv.Key, BindingFlags.Instance | BindingFlags.Public);
-                    if (field != null)
+                    if (field == null)
                     {
-                        field.SetValue(obj, ReadRecursive(field.FieldType, kv.Value));
+                        throw new MissingFieldException($"Failed to find field '{kv.Key}' in type '{targetType.Name}'");
                     }
-                    throw new MissingFieldException($"Failed to find field '{kv.Key}' in type '{targetType.Name}'");
+                    field.SetValue(obj, ReadRecursive(field.FieldType, kv.Value));
                 }
                 return obj;
             }
