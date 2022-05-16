@@ -1,13 +1,12 @@
-﻿using System;
-using System.Text;
+﻿using System.Text;
 using System.Collections;
-using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Globalization;
 
 namespace AggroBird.Json
 {
+    // Supported json types
     public enum JsonType
     {
         Number,
@@ -18,6 +17,7 @@ namespace AggroBird.Json
         Null,
     }
 
+    // Array of values
     public sealed class JsonArray : List<JsonValue>
     {
         public override string ToString()
@@ -26,6 +26,7 @@ namespace AggroBird.Json
         }
     }
 
+    // Object of key/values
     public sealed class JsonObject : Dictionary<string, JsonValue>
     {
         public override string ToString()
@@ -42,6 +43,7 @@ namespace AggroBird.Json
             this.type = type;
         }
 
+        // Get value type
         public bool isNumber => type == JsonType.Number;
         public bool isString => type == JsonType.String;
         public bool isBool => type == JsonType.Bool;
@@ -50,6 +52,7 @@ namespace AggroBird.Json
         public bool isNull => type == JsonType.Null;
         public JsonType type { get; private set; }
 
+        // Try-get value (won't throw on invalid cast)
         public bool TryGetValue(out int val)
         {
             try
@@ -210,6 +213,7 @@ namespace AggroBird.Json
             return false;
         }
 
+        // Explicit get/set (will throw on invalid cast)
         public int intValue
         {
             get
@@ -387,6 +391,7 @@ namespace AggroBird.Json
             }
         }
 
+        // Explicit cast operators (will throw on invalid cast)
         public static explicit operator int(JsonValue value) => value.intValue;
         public static explicit operator uint(JsonValue value) => value.uintValue;
         public static explicit operator long(JsonValue value) => value.longValue;
@@ -406,7 +411,7 @@ namespace AggroBird.Json
         {
             get
             {
-                return obj == null ? "null" : obj.GetType().ToString();
+                return obj == null ? "null" : obj.GetType().Name;
             }
         }
 
@@ -498,6 +503,7 @@ namespace AggroBird.Json
                                 c = str[pos];
                                 switch (c)
                                 {
+                                    // Catch unsupported control characters
                                     case '\0':
                                     case '\f':
                                     case '\n':
@@ -505,11 +511,13 @@ namespace AggroBird.Json
                                     case '\t':
                                     case '\v':
                                     case '\b':
-                                        throw new FormatException("Unsupported control character in string");
+                                        throw new FormatException($"Unsupported control character in string (line {lineNum})");
 
                                     case '\\':
                                     {
-                                        if (pos < len - 1)
+                                        // Character escapes
+                                        int remaining = len - pos;
+                                        if (remaining >= 2)
                                         {
                                             switch (str[pos + 1])
                                             {
@@ -524,9 +532,11 @@ namespace AggroBird.Json
                                                 case 'u':
                                                 {
                                                     // Parse hex char code
-                                                    if (len - pos >= 6 && uint.TryParse(str.Substring(pos + 2, 4), NumberStyles.AllowHexSpecifier, null, out uint charCode))
+                                                    if (remaining >= 6 && uint.TryParse(str.Substring(pos + 2, 4), NumberStyles.AllowHexSpecifier, null, out uint charCode))
                                                     {
                                                         stringBuffer.Append((char)charCode);
+
+                                                        // Skip escaped character + char code
                                                         pos += 5;
                                                         continue;
                                                     }
@@ -534,6 +544,8 @@ namespace AggroBird.Json
                                                 goto InvalidEscape;
                                                 default: goto InvalidEscape;
                                             }
+
+                                            // Skip escaped character
                                             pos++;
                                             continue;
                                         }
@@ -929,6 +941,7 @@ namespace AggroBird.Json
 
             throw new InvalidCastException();
         }
+
 
         public static string ToJson(object value, int maxRecursion = 32)
         {
