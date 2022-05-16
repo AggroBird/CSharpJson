@@ -410,6 +410,8 @@ namespace AggroBird.Json
         private const string TrueConstant = "true";
         private const string FalseConstant = "false";
         private const string NullConstant = "null";
+        private const int ReadMaxRecursion = 128;
+        private const int WriteMaxRecursion = 32;
 
 
         private object obj;
@@ -789,13 +791,13 @@ namespace AggroBird.Json
             }
         }
 
-        public static JsonValue FromJson(string str, StringBuilder stringBuffer = null, int maxRecursion = 128)
+        public static JsonValue FromJson(string str, StringBuilder stringBuffer = null, int maxRecursion = ReadMaxRecursion)
         {
             if (str == null) throw new ArgumentNullException(nameof(str));
             return new JsonReader(str, stringBuffer, maxRecursion).Read();
         }
 
-        public static object FromJson(string str, Type targetType, StringBuilder stringBuffer = null, int maxRecursion = 128)
+        public static object FromJson(string str, Type targetType, StringBuilder stringBuffer = null, int maxRecursion = ReadMaxRecursion)
         {
             if (str == null) throw new ArgumentNullException(nameof(str));
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
@@ -808,7 +810,7 @@ namespace AggroBird.Json
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
             return ReadRecursive(targetType, jsonObject);
         }
-        public static T FromJson<T>(string str, StringBuilder stringBuffer = null, int maxRecursion = 128) => (T)FromJson(str, typeof(T), stringBuffer, maxRecursion);
+        public static T FromJson<T>(string str, StringBuilder stringBuffer = null, int maxRecursion = ReadMaxRecursion) => (T)FromJson(str, typeof(T), stringBuffer, maxRecursion);
         public static T FromJson<T>(JsonValue jsonObject) => (T)FromJson(jsonObject, typeof(T));
 
         private static object ReadRecursive(Type targetType, JsonValue jsonObject)
@@ -1219,13 +1221,13 @@ namespace AggroBird.Json
             }
         }
 
-        public static string ToJson(object value, int maxRecursion = 32)
+        public static string ToJson(object value, int maxRecursion = WriteMaxRecursion)
         {
             StringBuilder outputBuffer = new StringBuilder(1024);
             new JsonWriter(outputBuffer, maxRecursion).Write(value);
             return outputBuffer.ToString();
         }
-        public static void ToJson(object value, StringBuilder outputBuffer, int maxRecursion = 32)
+        public static void ToJson(object value, StringBuilder outputBuffer, int maxRecursion = WriteMaxRecursion)
         {
             if (outputBuffer == null) throw new ArgumentNullException(nameof(outputBuffer));
             new JsonWriter(outputBuffer, maxRecursion).Write(value);
