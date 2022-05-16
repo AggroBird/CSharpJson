@@ -1,6 +1,6 @@
-# Reflection Json Utility
+# Reflection JSON Utility
 
-Lightweight Json parser for Unity/C# projects that don't support newer .NET versions. The difference between this Json parser and Unity's JsonUtility is that it supports nested Json types in structs that can be typecasted at runtime later.
+Lightweight JSON parser for Unity/C# projects that don't support newer .NET versions. The difference between this JSON parser and Unity's JsonUtility is that it supports nested JSON types in structs that can be typecasted at runtime later.
 
 Example:
 ```csharp
