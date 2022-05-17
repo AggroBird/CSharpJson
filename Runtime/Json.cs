@@ -407,7 +407,7 @@ namespace AggroBird.Json
         }
 
 
-        private sealed class JsonReader
+        public sealed class Reader
         {
             private enum TokenType
             {
@@ -423,34 +423,81 @@ namespace AggroBird.Json
                 Unknown = -1,
             }
 
-            public JsonReader(string str, StringBuilder stringBuffer, int maxRecursion)
+            private enum CommentState
             {
-                this.str = str;
-                len = str.Length;
-                this.stringBuffer = stringBuffer;
-                this.maxRecursion = maxRecursion > 1 ? maxRecursion : 1;
+                None,
+                SingleLine,
+                MultiLine,
             }
 
-            private readonly string str;
-            private readonly int len;
-            private readonly int maxRecursion;
-            private StringBuilder stringBuffer;
-            private int pos = 0;
+            // Max read recursion (how deep do we allow json files to go)
+            public int maxRecursion = ReadMaxRecursion;
+            // String buffer for building strings (optional if the input does not contain strings)
+            public StringBuilder stringBuffer = null;
+            // Allow trailing and inline comments (not part of the JSON specifications)
+            public bool allowComments = false;
+
+            private unsafe char* ptr = null;
+            private unsafe char* end = null;
             private int lineNum = 1;
 
-            private TokenType ParseNext(out JsonValue val)
+            private unsafe TokenType ParseNext(out JsonValue val)
             {
                 val = null;
-
+                CommentState commentState = CommentState.None;
                 while (true)
                 {
-                    if (pos >= len)
+                    if (ptr >= end)
                     {
+                        // Ensure no dangling comments
+                        if (commentState == CommentState.MultiLine)
+                        {
+                            throw new FormatException($"Unterminated comment (line {lineNum})");
+                        }
+
+                        // End of file
                         return TokenType.Eof;
                     }
 
-                    int beg = pos++;
-                    char c = str[beg];
+                    char* beg = ptr++;
+                    char c = *beg;
+
+                    if (c == '\n')
+                    {
+                        // Increment newline
+                        lineNum++;
+
+                        // Finish single line comments
+                        if (commentState == CommentState.SingleLine)
+                        {
+                            commentState = CommentState.None;
+                        }
+
+                        continue;
+                    }
+
+                    if (commentState != CommentState.None)
+                    {
+                        if (commentState == CommentState.MultiLine && c == '*')
+                        {
+                            if (ptr < end)
+                            {
+                                c = *ptr++;
+                                if (c == '/')
+                                {
+                                    commentState = CommentState.None;
+                                    continue;
+                                }
+                            }
+                            throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
+                        }
+                        else
+                        {
+                            // Skip characters in comments
+                            continue;
+                        }
+                    }
+
                     switch (c)
                     {
                         // Skip whitespaces
@@ -458,12 +505,27 @@ namespace AggroBird.Json
                         case '\t':
                         case '\r':
                         case '\v':
+                        case '\n':
                             continue;
 
-                        // Increment newline
-                        case '\n':
-                            lineNum++;
-                            continue;
+                        // Comments (if enabled)
+                        case '/':
+                        {
+                            if (allowComments && ptr < end)
+                            {
+                                c = *ptr++;
+                                switch (c)
+                                {
+                                    case '/':
+                                        commentState = CommentState.SingleLine;
+                                        continue;
+                                    case '*':
+                                        commentState = CommentState.MultiLine;
+                                        continue;
+                                }
+                            }
+                            throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
+                        }
 
                         // Recognized tokens
                         case '{': return TokenType.BraceOpen;
@@ -475,14 +537,18 @@ namespace AggroBird.Json
                         case '"':
                         {
                             if (stringBuffer == null)
+                            {
                                 stringBuffer = new StringBuilder(StringBufferCapacity);
+                            }
                             else
+                            {
                                 stringBuffer.Clear();
+                            }
 
                             // Iterate string characters
-                            for (; pos < len; pos++)
+                            while (ptr < end)
                             {
-                                c = str[pos];
+                                c = *ptr++;
                                 switch (c)
                                 {
                                     // Catch unsupported control characters
@@ -495,13 +561,13 @@ namespace AggroBird.Json
                                     case '\b':
                                         throw new FormatException($"Unsupported control character in string (line {lineNum})");
 
+                                    // Character escapes
                                     case '\\':
                                     {
-                                        // Character escapes
-                                        int remaining = len - pos;
-                                        if (remaining >= 2)
+                                        long remaining = end - ptr;
+                                        if (remaining > 0)
                                         {
-                                            switch (str[pos + 1])
+                                            switch (*ptr)
                                             {
                                                 case '\\': stringBuffer.Append('\\'); break;
                                                 case '/': stringBuffer.Append('/'); break;
@@ -514,12 +580,12 @@ namespace AggroBird.Json
                                                 case 'u':
                                                 {
                                                     // Parse hex char code
-                                                    if (remaining >= 6 && uint.TryParse(str.Substring(pos + 2, 4), NumberStyles.AllowHexSpecifier, null, out uint charCode))
+                                                    if (remaining >= 5 && uint.TryParse(new string(ptr, 1, 4), NumberStyles.AllowHexSpecifier, null, out uint charCode))
                                                     {
                                                         stringBuffer.Append((char)charCode);
 
                                                         // Skip escaped character + char code
-                                                        pos += 5;
+                                                        ptr += 5;
                                                         continue;
                                                     }
                                                 }
@@ -528,21 +594,20 @@ namespace AggroBird.Json
                                             }
 
                                             // Skip escaped character
-                                            pos++;
+                                            ptr++;
                                             continue;
                                         }
                                     InvalidEscape:
                                         throw new FormatException($"Invalid character escape sequence (line {lineNum})");
                                     }
-                                }
-                                if (c == '"')
-                                {
-                                    // End of string
-                                    string str = stringBuffer.Length > 0 ? stringBuffer.ToString() : string.Empty;
 
-                                    val = new JsonValue(str, JsonType.String);
-                                    pos++;
-                                    return TokenType.String;
+                                    // End of string
+                                    case '"':
+                                    {
+                                        string strValue = stringBuffer.Length > 0 ? stringBuffer.ToString() : string.Empty;
+                                        val = new JsonValue(strValue, JsonType.String);
+                                        return TokenType.String;
+                                    }
                                 }
                                 stringBuffer.Append(c);
                             }
@@ -550,56 +615,67 @@ namespace AggroBird.Json
                         }
                         default:
                         {
-                            // Continue until token or whitespace
-                            for (; pos < len; pos++)
+                            // Only allow numbers, letters and minus
+                            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-')
                             {
-                                c = str[pos];
-                                switch (c)
+                                // Continue until token or whitespace
+                                for (; ptr < end; ptr++)
                                 {
-                                    case ' ':
-                                    case '\t':
-                                    case '\v':
-                                    case '\r':
-                                    case '\n':
-                                    case '{':
-                                    case '}':
-                                    case '[':
-                                    case ']':
-                                    case ',':
-                                    case ':':
-                                    case '"':
-                                        goto ParseValue;
-                                }
-                            }
-
-                        ParseValue:
-                            if (pos - beg > 0)
-                            {
-                                string sub = str.Substring(beg, pos - beg);
-                                if (char.IsDigit(sub[0]) || sub[0] == '-')
-                                {
-                                    if (double.TryParse(sub, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+                                    switch (*ptr)
                                     {
-                                        val = new JsonValue(d, JsonType.Number);
-                                        return TokenType.Value;
+                                        case ' ':
+                                        case '\t':
+                                        case '\v':
+                                        case '\r':
+                                        case '\n':
+                                        case '{':
+                                        case '}':
+                                        case '[':
+                                        case ']':
+                                        case ',':
+                                        case ':':
+                                        case '"':
+                                            goto ParseValue;
                                     }
                                 }
-                                else if (sub == TrueConstant)
+
+                            ParseValue:
+                                // Try parse value
+                                long len = ptr - beg;
+                                if (len > 0)
                                 {
-                                    val = new JsonValue(true, JsonType.Bool);
-                                    return TokenType.Value;
+                                    if (len > int.MaxValue)
+                                    {
+                                        throw new OverflowException();
+                                    }
+
+                                    string subStr = new string(beg, 0, (int)len);
+                                    if (char.IsDigit(subStr[0]) || subStr[0] == '-')
+                                    {
+                                        if (double.TryParse(subStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+                                        {
+                                            val = new JsonValue(d, JsonType.Number);
+                                            return TokenType.Value;
+                                        }
+                                    }
+                                    else if (subStr == TrueConstant)
+                                    {
+                                        val = new JsonValue(true, JsonType.Bool);
+                                        return TokenType.Value;
+                                    }
+                                    else if (subStr == FalseConstant)
+                                    {
+                                        val = new JsonValue(false, JsonType.Bool);
+                                        return TokenType.Value;
+                                    }
+                                    else if (subStr == NullConstant)
+                                    {
+                                        val = new JsonValue(null, JsonType.Null);
+                                        return TokenType.Value;
+                                    }
+
+                                    throw new FormatException($"Unknown expression '{subStr}' (line {lineNum})");
                                 }
-                                else if (sub == FalseConstant)
-                                {
-                                    val = new JsonValue(false, JsonType.Bool);
-                                    return TokenType.Value;
-                                }
-                                else if (sub == NullConstant)
-                                {
-                                    val = new JsonValue(null, JsonType.Null);
-                                    return TokenType.Value;
-                                }
-                                throw new FormatException($"Unknown expression '{sub}' (line {lineNum})");
                             }
                             throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
                         }
@@ -607,43 +683,55 @@ namespace AggroBird.Json
                 }
             }
 
-            private TokenType PeekNext()
+            private unsafe TokenType PeekNext(bool consume)
             {
                 // Continue iterating until a token is encountered
-                while (true)
+                while (ptr < end)
                 {
-                    if (pos >= len)
-                    {
-                        return TokenType.Eof;
-                    }
-
-                    switch (str[pos])
+                    char c = *ptr;
+                    switch (c)
                     {
                         case ' ':
                         case '\t':
                         case '\v':
                         case '\r':
-                            pos++;
+                            ptr++;
                             continue;
 
                         case '\n':
-                            pos++;
+                            ptr++;
                             lineNum++;
                             continue;
 
-                        case '{': return TokenType.BraceOpen;
-                        case '}': return TokenType.BraceClose;
-                        case '[': return TokenType.BracketOpen;
-                        case ']': return TokenType.BracketClose;
-                        case ',': return TokenType.Comma;
-                        case ':': return TokenType.Colon;
+                        // If its a known token, we can consume it
+                        case '{': if (consume) ptr++; return TokenType.BraceOpen;
+                        case '}': if (consume) ptr++; return TokenType.BraceClose;
+                        case '[': if (consume) ptr++; return TokenType.BracketOpen;
+                        case ']': if (consume) ptr++; return TokenType.BracketClose;
+                        case ',': if (consume) ptr++; return TokenType.Comma;
+                        case ':': if (consume) ptr++; return TokenType.Colon;
 
                         default: return TokenType.Unknown;
                     }
                 }
+
+                return TokenType.Eof;
+            }
+            private unsafe bool PeekNext(TokenType expected)
+            {
+                TokenType encountered = PeekNext(false);
+                if (encountered == expected)
+                {
+                    if (encountered != TokenType.Eof)
+                    {
+                        ptr++;
+                    }
+                    return true;
+                }
+                return false;
             }
 
-            private JsonValue ParseObjectRecursive(int level)
+            private unsafe JsonValue ParseObjectRecursive(int level)
             {
                 if (level >= maxRecursion)
                 {
@@ -652,18 +740,17 @@ namespace AggroBird.Json
                 level++;
 
                 JsonObject obj = new JsonObject();
-                if (PeekNext() != TokenType.BraceClose)
+                if (!PeekNext(TokenType.BraceClose))
                 {
                 Next:
                     if (ParseNext(out JsonValue key) != TokenType.String)
                     {
                         throw new FormatException($"Expected key string (line {lineNum})");
                     }
-                    if (PeekNext() != TokenType.Colon)
+                    if (!PeekNext(TokenType.Colon))
                     {
                         throw new FormatException($"Missing colon after key string (line {lineNum})");
                     }
-                    pos++;
 
                     switch (ParseNext(out JsonValue val))
                     {
@@ -681,19 +768,18 @@ namespace AggroBird.Json
                         default:
                             throw new FormatException($"Expected value (line {lineNum})");
                     }
-                    switch (PeekNext())
+                    switch (PeekNext(true))
                     {
                         case TokenType.BraceClose: goto Exit;
-                        case TokenType.Comma: pos++; goto Next;
-                        default: throw new FormatException($"Expected comma or closing brace after value (line {lineNum})");
+                        case TokenType.Comma: goto Next;
+                        default: throw new FormatException($"Expected closing brace (line {lineNum})");
                     }
                 }
 
             Exit:
-                pos++;
                 return new JsonValue(obj, JsonType.Object);
             }
-            private JsonValue ParseArrayRecursive(int level)
+            private unsafe JsonValue ParseArrayRecursive(int level)
             {
                 if (level >= maxRecursion)
                 {
@@ -702,7 +788,7 @@ namespace AggroBird.Json
                 level++;
 
                 JsonArray arr = new JsonArray();
-                if (PeekNext() != TokenType.BracketClose)
+                if (!PeekNext(TokenType.BracketClose))
                 {
                 Next:
                     switch (ParseNext(out JsonValue val))
@@ -721,57 +807,69 @@ namespace AggroBird.Json
                         default:
                             throw new FormatException($"Expected value (line {lineNum})");
                     }
-                    switch (PeekNext())
+                    switch (PeekNext(true))
                     {
                         case TokenType.BracketClose: goto Exit;
-                        case TokenType.Comma: pos++; goto Next;
-                        default: throw new FormatException($"Expected comma or closing bracket after value (line {lineNum})");
+                        case TokenType.Comma: goto Next;
+                        default: throw new FormatException($"Expected closing bracket (line {lineNum})");
                     }
                 }
 
             Exit:
-                pos++;
                 return new JsonValue(arr, JsonType.Array);
             }
 
-            public JsonValue Read()
+            private unsafe JsonValue Read(string str)
             {
-                JsonValue result;
-                switch (ParseNext(out JsonValue val))
-                {
-                    case TokenType.BraceOpen:
-                        result = ParseObjectRecursive(0);
-                        break;
-                    case TokenType.BracketOpen:
-                        result = ParseArrayRecursive(0);
-                        break;
-                    case TokenType.Value:
-                    case TokenType.String:
-                        result = val;
-                        break;
-                    default:
-                        throw new FormatException("Invalid Json string");
-                }
+                lineNum = 1;
 
-                // Ensure eof
-                if (PeekNext() != TokenType.Eof)
+                fixed (char* p = str)
                 {
-                    throw new FormatException($"Unexpected expression at the end of file (line {lineNum})");
-                }
+                    ptr = p;
+                    end = p + str.Length;
 
-                return result;
+                    JsonValue result;
+                    switch (ParseNext(out JsonValue val))
+                    {
+                        case TokenType.BraceOpen:
+                            result = ParseObjectRecursive(0);
+                            break;
+                        case TokenType.BracketOpen:
+                            result = ParseArrayRecursive(0);
+                            break;
+                        case TokenType.Value:
+                        case TokenType.String:
+                            result = val;
+                            break;
+                        default:
+                            throw new FormatException("Invalid Json string");
+                    }
+
+                    // Ensure eof
+                    if (!PeekNext(TokenType.Eof))
+                    {
+                        throw new FormatException($"Unexpected expression at the end of file (line {lineNum})");
+                    }
+
+                    return result;
+                }
+            }
+
+            public JsonValue FromJson(string str)
+            {
+                if (str == null) throw new ArgumentNullException(nameof(str));
+                if (str.Length == 0) throw new ArgumentException($"Invalid Json string");
+                return Read(str);
             }
         }
 
         public static JsonValue FromJson(string str, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null)
         {
-            if (str == null) throw new ArgumentNullException(nameof(str));
-            return new JsonReader(str, stringBuffer, maxRecursion).Read();
+            return new Reader { maxRecursion = maxRecursion, stringBuffer = stringBuffer }.FromJson(str);
         }
 
         public static object FromJson(string str, Type targetType, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null)
         {
-            if (str == null) throw new ArgumentNullException(nameof(str));
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
             JsonValue jsonObject = FromJson(str, maxRecursion, stringBuffer);
             return ReadRecursive(targetType, jsonObject);
@@ -926,23 +1024,30 @@ namespace AggroBird.Json
         }
 
 
-        private sealed class JsonWriter
+        public sealed class Writer
         {
-            public JsonWriter(StringBuilder stringBuffer, int maxRecursion)
-            {
-                this.maxRecursion = maxRecursion > 1 ? maxRecursion : 1;
-                this.stringBuffer = stringBuffer;
-            }
-
             private const string AnonymousTypeName = "AnonymousType";
             private const string UnicodePrefix = "\\u00";
 
-            private readonly int maxRecursion;
-            private StringBuilder stringBuffer;
+            // Max read recursion (how deep do we allow object references and arrays to go)
+            public int maxRecursion = WriteMaxRecursion;
+            // Stringbuffer used to build the output (will be reused if left unchanged)
+            public StringBuilder stringBuffer = null;
 
-            public void Write(object value)
+            public string ToJson(object value)
             {
+                if (stringBuffer == null)
+                {
+                    stringBuffer = new StringBuilder(OutputBufferCapacity);
+                }
+                else
+                {
+                    stringBuffer.Clear();
+                }
+
                 WriteRecursive(value, 0);
+
+                return stringBuffer.ToString();
             }
 
             private void WriteRecursive(object value, int level)
@@ -1188,20 +1293,7 @@ namespace AggroBird.Json
 
         public static string ToJson(object value, int maxRecursion = WriteMaxRecursion, StringBuilder stringBuffer = null)
         {
-            if (stringBuffer == null)
-            {
-                stringBuffer = new StringBuilder(OutputBufferCapacity);
-            }
-            else
-            {
-                stringBuffer.Clear();
-            }
-
-            new JsonWriter(stringBuffer, maxRecursion).Write(value);
-
-            string result = stringBuffer.ToString();
-            stringBuffer.Clear();
-            return result;
+            return new Writer { maxRecursion = maxRecursion, stringBuffer = stringBuffer }.ToJson(value);
         }
     }
 }
