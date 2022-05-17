@@ -440,64 +440,88 @@ namespace AggroBird.Json
             private unsafe char* ptr = null;
             private unsafe char* end = null;
             private int lineNum = 1;
+            private CommentState commentState = CommentState.None;
 
-            private unsafe TokenType ParseNext(out JsonValue val)
+
+            // This function will skip ahead if it encounters valid comment tags
+            // A result of true indicates that the parser must skip the current character
+            private unsafe bool UpdateCommentState()
             {
-                val = null;
-                CommentState commentState = CommentState.None;
-                while (true)
+                if (commentState == CommentState.None)
                 {
-                    if (ptr >= end)
+                    char c = *ptr;
+                    if (c == '/')
                     {
-                        // Ensure no dangling comments
-                        if (commentState == CommentState.MultiLine)
+                        if (allowComments && ptr < end - 1)
                         {
-                            throw new FormatException($"Unterminated comment (line {lineNum})");
+                            c = *++ptr;
+                            ptr++;
+                            switch (c)
+                            {
+                                case '/': commentState = CommentState.SingleLine; return true;
+                                case '*': commentState = CommentState.MultiLine; return true;
+                            }
                         }
-
-                        // End of file
-                        return TokenType.Eof;
+                        throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
                     }
-
-                    char* beg = ptr++;
-                    char c = *beg;
-
-                    if (c == '\n')
+                }
+                else
+                {
+                    char c = *ptr++;
+                    switch (c)
                     {
-                        // Increment newline
-                        lineNum++;
-
-                        // Finish single line comments
-                        if (commentState == CommentState.SingleLine)
+                        case '*':
                         {
-                            commentState = CommentState.None;
-                        }
-
-                        continue;
-                    }
-
-                    if (commentState != CommentState.None)
-                    {
-                        if (commentState == CommentState.MultiLine && c == '*')
-                        {
-                            if (ptr < end)
+                            if (commentState == CommentState.MultiLine && ptr < end)
                             {
                                 c = *ptr++;
                                 if (c == '/')
                                 {
                                     commentState = CommentState.None;
-                                    continue;
+                                    return true;
                                 }
                             }
-                            throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
                         }
-                        else
+                        throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
+
+                        case '\n':
                         {
-                            // Skip characters in comments
-                            continue;
+                            if (commentState == CommentState.SingleLine)
+                            {
+                                commentState = CommentState.None;
+                            }
+
+                            lineNum++;
                         }
+                        break;
+                    }
+                    return true;
+                }
+
+                return false;
+            }
+
+            private void EndOfFile()
+            {
+                // Ensure no dangling comments
+                if (commentState == CommentState.MultiLine)
+                {
+                    throw new FormatException($"Unterminated comment (line {lineNum})");
+                }
+            }
+
+            private unsafe TokenType ParseNext(out JsonValue val)
+            {
+                val = null;
+                while (ptr < end)
+                {
+                    if (UpdateCommentState())
+                    {
+                        continue;
                     }
 
+                    char* beg = ptr;
+                    char c = *ptr++;
                     switch (c)
                     {
                         // Skip whitespaces
@@ -505,27 +529,11 @@ namespace AggroBird.Json
                         case '\t':
                         case '\r':
                         case '\v':
-                        case '\n':
                             continue;
 
-                        // Comments (if enabled)
-                        case '/':
-                        {
-                            if (allowComments && ptr < end)
-                            {
-                                c = *ptr++;
-                                switch (c)
-                                {
-                                    case '/':
-                                        commentState = CommentState.SingleLine;
-                                        continue;
-                                    case '*':
-                                        commentState = CommentState.MultiLine;
-                                        continue;
-                                }
-                            }
-                            throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
-                        }
+                        case '\n':
+                            lineNum++;
+                            continue;
 
                         // Recognized tokens
                         case '{': return TokenType.BraceOpen;
@@ -628,6 +636,7 @@ namespace AggroBird.Json
                                         case '\v':
                                         case '\r':
                                         case '\n':
+                                        case '/':
                                         case '{':
                                         case '}':
                                         case '[':
@@ -681,16 +690,26 @@ namespace AggroBird.Json
                         }
                     }
                 }
+
+                // End of file
+                EndOfFile();
+                return TokenType.Eof;
             }
 
             private unsafe TokenType PeekNext(bool consume)
             {
-                // Continue iterating until a token is encountered
+                // Continue iterating until a known token is encountered
                 while (ptr < end)
                 {
+                    if (UpdateCommentState())
+                    {
+                        continue;
+                    }
+
                     char c = *ptr;
                     switch (c)
                     {
+                        // Skip whitespaces
                         case ' ':
                         case '\t':
                         case '\v':
@@ -715,6 +734,8 @@ namespace AggroBird.Json
                     }
                 }
 
+                // Ensure no dangling comments
+                EndOfFile();
                 return TokenType.Eof;
             }
             private unsafe bool PeekNext(TokenType expected)
@@ -824,15 +845,14 @@ namespace AggroBird.Json
 
             private unsafe JsonValue Read(string str)
             {
-                lineNum = 1;
-
                 fixed (char* p = str)
                 {
                     ptr = p;
                     end = p + str.Length;
+                    lineNum = 1;
+                    commentState = CommentState.None;
 
-                    JsonValue result;
-                    switch (ParseNext(out JsonValue val))
+                    switch (ParseNext(out JsonValue result))
                     {
                         case TokenType.BraceOpen:
                             result = ParseObjectRecursive(0);
@@ -842,7 +862,6 @@ namespace AggroBird.Json
                             break;
                         case TokenType.Value:
                         case TokenType.String:
-                            result = val;
                             break;
                         default:
                             throw new FormatException("Invalid Json string");
