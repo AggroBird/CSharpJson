@@ -747,6 +747,7 @@ namespace AggroBird.Json
                     {
                         throw new FormatException($"Expected key string (line {lineNum})");
                     }
+
                     if (!PeekNext(TokenType.Colon))
                     {
                         throw new FormatException($"Missing colon after key string (line {lineNum})");
@@ -768,6 +769,7 @@ namespace AggroBird.Json
                         default:
                             throw new FormatException($"Expected value (line {lineNum})");
                     }
+
                     switch (PeekNext(true))
                     {
                         case TokenType.BraceClose: goto Exit;
@@ -807,6 +809,7 @@ namespace AggroBird.Json
                         default:
                             throw new FormatException($"Expected value (line {lineNum})");
                     }
+
                     switch (PeekNext(true))
                     {
                         case TokenType.BracketClose: goto Exit;
@@ -861,6 +864,15 @@ namespace AggroBird.Json
                 if (str.Length == 0) throw new ArgumentException($"Invalid Json string");
                 return Read(str);
             }
+            public object FromJson(string str, Type targetType)
+            {
+                if (targetType == null) throw new ArgumentNullException(nameof(targetType));
+                return ReadRecursive(targetType, FromJson(str));
+            }
+            public T FromJson<T>(string str)
+            {
+                return (T)ReadRecursive(typeof(T), FromJson(str));
+            }
         }
 
         public static JsonValue FromJson(string str, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null)
@@ -870,18 +882,24 @@ namespace AggroBird.Json
 
         public static object FromJson(string str, Type targetType, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null)
         {
-            if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-            JsonValue jsonObject = FromJson(str, maxRecursion, stringBuffer);
-            return ReadRecursive(targetType, jsonObject);
+            return new Reader { maxRecursion = maxRecursion, stringBuffer = stringBuffer }.FromJson(str, targetType);
         }
+        public static T FromJson<T>(string str, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null)
+        {
+            return new Reader { maxRecursion = maxRecursion, stringBuffer = stringBuffer }.FromJson<T>(str);
+        }
+
         public static object FromJson(JsonValue jsonObject, Type targetType)
         {
             if (jsonObject == null) throw new ArgumentNullException(nameof(jsonObject));
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
             return ReadRecursive(targetType, jsonObject);
         }
-        public static T FromJson<T>(string str, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null) => (T)FromJson(str, typeof(T), maxRecursion, stringBuffer);
-        public static T FromJson<T>(JsonValue jsonObject) => (T)FromJson(jsonObject, typeof(T));
+        public static T FromJson<T>(JsonValue jsonObject)
+        {
+            if (jsonObject == null) throw new ArgumentNullException(nameof(jsonObject));
+            return (T)ReadRecursive(typeof(T), jsonObject);
+        }
 
         private static object ReadRecursive(Type targetType, JsonValue jsonObject)
         {
