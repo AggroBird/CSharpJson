@@ -365,18 +365,18 @@ namespace AggroBird.Json
         }
 
 
-        public static JsonValue FromJson(string str, StringBuilder stringBuffer = null)
+        public static JsonValue FromJson(string str)
         {
-            return new JsonReader { stringBuffer = stringBuffer }.FromJson(str);
+            return new JsonReader().FromJson(str);
         }
 
-        public static object FromJson(string str, Type targetType, StringBuilder stringBuffer = null)
+        public static object FromJson(string str, Type targetType)
         {
-            return FromJson(FromJson(str, stringBuffer), targetType);
+            return FromJson(FromJson(str), targetType);
         }
-        public static T FromJson<T>(string str, StringBuilder stringBuffer = null)
+        public static T FromJson<T>(string str)
         {
-            return (T)FromJson(FromJson(str, stringBuffer), typeof(T));
+            return (T)FromJson(FromJson(str), typeof(T));
         }
 
         public static object FromJson(JsonValue jsonValue, Type targetType)
@@ -517,9 +517,9 @@ namespace AggroBird.Json
             return (T)FromJson(jsonObject, typeof(T));
         }
 
-        public static string ToJson(object value, StringBuilder stringBuffer = null)
+        public static string ToJson(object value)
         {
-            return new JsonWriter { stringBuffer = stringBuffer }.ToJson(value);
+            return new JsonWriter().ToJson(value);
         }
     }
 
