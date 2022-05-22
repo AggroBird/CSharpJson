@@ -40,52 +40,52 @@ namespace AggroBird.Json
     public struct JsonValue
     {
         // Constructors
-        public JsonValue(int val)
+        private JsonValue(int val)
         {
             obj = val;
             type = JsonType.Number;
         }
-        public JsonValue(uint val)
+        private JsonValue(uint val)
         {
             obj = val;
             type = JsonType.Number;
         }
-        public JsonValue(long val)
+        private JsonValue(long val)
         {
             obj = val;
             type = JsonType.Number;
         }
-        public JsonValue(ulong val)
+        private JsonValue(ulong val)
         {
             obj = val;
             type = JsonType.Number;
         }
-        public JsonValue(float val)
+        private JsonValue(float val)
         {
             obj = val;
             type = JsonType.Number;
         }
-        public JsonValue(double val)
+        private JsonValue(double val)
         {
             obj = val;
             type = JsonType.Number;
         }
-        public JsonValue(string val)
+        private JsonValue(string val)
         {
             obj = val;
             type = val == null ? JsonType.Null : JsonType.String;
         }
-        public JsonValue(bool val)
+        private JsonValue(bool val)
         {
             obj = val;
             type = JsonType.Bool;
         }
-        public JsonValue(JsonArray val)
+        private JsonValue(JsonArray val)
         {
             obj = val;
             type = val == null ? JsonType.Null : JsonType.Array;
         }
-        public JsonValue(JsonObject val)
+        private JsonValue(JsonObject val)
         {
             obj = val;
             type = val == null ? JsonType.Null : JsonType.Object;
