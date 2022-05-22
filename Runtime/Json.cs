@@ -334,6 +334,8 @@ namespace AggroBird.Json
         internal const string NullConstant = "null";
         internal const int ReadMaxRecursion = 128;
         internal const int WriteMaxRecursion = 32;
+        internal const int ReadMaxArrayLength = 1024;
+        internal const int ReadMaxFieldCount = 256;
         internal const int StringBufferCapacity = 256;
         internal const int OutputBufferCapacity = 1024;
 
@@ -544,8 +546,12 @@ namespace AggroBird.Json
             MultiLine,
         }
 
-        // Max read recursion (how deep do we allow json files to go)
+        // Max read recursion (how deep do we allow json objects to nest)
         public int maxRecursion = JsonValue.ReadMaxRecursion;
+        // Max array length allowed
+        public int maxArrayLength = JsonValue.ReadMaxArrayLength;
+        // Max amount of fields allowed per object
+        public int maxFieldCount = JsonValue.ReadMaxFieldCount;
         // String buffer for building strings (optional if the input does not contain strings)
         public StringBuilder stringBuffer = null;
         // Allow trailing and inline comments (not part of the JSON specifications)
@@ -877,6 +883,11 @@ namespace AggroBird.Json
             if (!PeekNext(TokenType.BraceClose))
             {
             Next:
+                if (jsonObject.Count >= maxFieldCount)
+                {
+                    throw new OverflowException($"Max object field count reached ({maxFieldCount})");
+                }
+
                 if (ParseNext(out JsonValue key) != TokenType.String)
                 {
                     throw new FormatException($"Expected key string (line {lineNum})");
@@ -927,6 +938,11 @@ namespace AggroBird.Json
             if (!PeekNext(TokenType.BracketClose))
             {
             Next:
+                if (jsonArray.Count >= maxArrayLength)
+                {
+                    throw new OverflowException($"Max array length reached ({maxArrayLength})");
+                }
+
                 switch (ParseNext(out JsonValue val))
                 {
                     case TokenType.String:
@@ -1012,7 +1028,7 @@ namespace AggroBird.Json
         private const string AnonymousTypeName = "AnonymousType";
         private const string UnicodePrefix = "\\u00";
 
-        // Max read recursion (how deep do we allow object references to go)
+        // Max read recursion (how deep do we allow reference types to go)
         public int maxRecursion = JsonValue.WriteMaxRecursion;
         // Stringbuffer used to build the output (will be reused if left unchanged)
         public StringBuilder stringBuffer = null;
