@@ -11,12 +11,12 @@ namespace AggroBird.Json
     // Supported json types
     public enum JsonType
     {
+        Null,
         Number,
         String,
         Bool,
         Array,
         Object,
-        Null,
     }
 
     // Array of values
@@ -37,21 +37,67 @@ namespace AggroBird.Json
         }
     }
 
-    public sealed class JsonValue
+    public struct JsonValue
     {
-        private JsonValue(object obj, JsonType type)
+        // Constructors
+        public JsonValue(int val)
         {
-            this.obj = obj;
-            this.type = type;
+            obj = val;
+            type = JsonType.Number;
+        }
+        public JsonValue(uint val)
+        {
+            obj = val;
+            type = JsonType.Number;
+        }
+        public JsonValue(long val)
+        {
+            obj = val;
+            type = JsonType.Number;
+        }
+        public JsonValue(ulong val)
+        {
+            obj = val;
+            type = JsonType.Number;
+        }
+        public JsonValue(float val)
+        {
+            obj = val;
+            type = JsonType.Number;
+        }
+        public JsonValue(double val)
+        {
+            obj = val;
+            type = JsonType.Number;
+        }
+        public JsonValue(string val)
+        {
+            obj = val;
+            type = val == null ? JsonType.Null : JsonType.String;
+        }
+        public JsonValue(bool val)
+        {
+            obj = val;
+            type = JsonType.Bool;
+        }
+        public JsonValue(JsonArray val)
+        {
+            obj = val;
+            type = val == null ? JsonType.Null : JsonType.Array;
+        }
+        public JsonValue(JsonObject val)
+        {
+            obj = val;
+            type = val == null ? JsonType.Null : JsonType.Object;
         }
 
         // Get value type
+        public bool isNull => type == JsonType.Null;
         public bool isNumber => type == JsonType.Number;
         public bool isString => type == JsonType.String;
         public bool isBool => type == JsonType.Bool;
         public bool isArray => type == JsonType.Array;
         public bool isObject => type == JsonType.Object;
-        public bool isNull => type == JsonType.Null;
         public JsonType type { get; private set; }
 
         // Try-get value (won't throw on invalid cast)
@@ -59,90 +105,75 @@ namespace AggroBird.Json
         {
             try
             {
-                if (obj is double d)
-                {
-                    val = Convert.ToInt32(d);
-                    return true;
-                }
+                val = (int)this;
+                return true;
             }
             catch (Exception)
             {
 
             }
 
-            val = 0;
+            val = default;
             return false;
         }
         public bool TryGetValue(out uint val)
         {
             try
             {
-                if (obj is double d)
-                {
-                    val = Convert.ToUInt32(d);
-                    return true;
-                }
+                val = (uint)this;
+                return true;
             }
             catch (Exception)
             {
 
             }
 
-            val = 0;
+            val = default;
             return false;
         }
         public bool TryGetValue(out long val)
         {
             try
             {
-                if (obj is double d)
-                {
-                    val = Convert.ToInt64(d);
-                    return true;
-                }
+                val = (long)this;
+                return true;
             }
             catch (Exception)
             {
 
             }
 
-            val = 0;
+            val = default;
             return false;
         }
         public bool TryGetValue(out ulong val)
         {
             try
             {
-                if (obj is double d)
-                {
-                    val = Convert.ToUInt64(d);
-                    return true;
-                }
+                val = (ulong)this;
+                return true;
             }
             catch (Exception)
             {
 
             }
 
-            val = 0;
+            val = default;
             return false;
         }
         public bool TryGetValue(out float val)
         {
             try
             {
-                if (obj is double d)
-                {
-                    val = Convert.ToSingle(d);
-                    return true;
-                }
+                val = (float)this;
+                return true;
             }
             catch (Exception)
             {
 
             }
 
-            val = 0;
+            val = default;
             return false;
         }
         public bool TryGetValue(out double val)
@@ -153,7 +184,7 @@ namespace AggroBird.Json
                 return true;
             }
 
-            val = 0;
+            val = default;
             return false;
         }
         public bool TryGetValue(out string val)
@@ -163,7 +194,8 @@ namespace AggroBird.Json
                 val = str;
                 return true;
             }
-            val = null;
+
+            val = default;
             return false;
         }
         public bool TryGetValue(out bool val)
@@ -173,225 +205,142 @@ namespace AggroBird.Json
                 val = b;
                 return true;
             }
-            val = false;
+
+            val = default;
             return false;
         }
         public bool TryGetValue(out JsonArray val)
         {
-            if (obj is JsonArray arr)
+            if (obj is JsonArray jsonArray)
             {
-                val = arr;
+                val = jsonArray;
                 return true;
             }
-            val = null;
+
+            val = default;
             return false;
         }
         public bool TryGetValue(out JsonObject val)
         {
-            if (obj is JsonObject o)
+            if (obj is JsonObject jsonObject)
             {
-                val = o;
+                val = jsonObject;
                 return true;
             }
-            val = null;
+
+            val = default;
             return false;
         }
 
-        // Explicit get/set (will throw on invalid cast)
-        public int intValue
+        // Explicit cast operators (will throw on invalid cast)
+        public static explicit operator int(JsonValue value)
         {
-            get
+            if (!(value.obj is double val))
             {
-                if (!TryGetValue(out int val))
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(int)}'");
-                }
-                return val;
+                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(int)}'");
             }
-            set
-            {
-                obj = (double)value;
-                type = JsonType.Number;
-            }
+            return Convert.ToInt32(val);
         }
-        public uint uintValue
+        public static explicit operator uint(JsonValue value)
         {
-            get
+            if (!(value.obj is double val))
             {
-                if (!TryGetValue(out uint val))
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(uint)}'");
-                }
-                return val;
+                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(uint)}'");
             }
-            set
-            {
-                obj = (double)value;
-                type = JsonType.Number;
-            }
+            return Convert.ToUInt32(val);
         }
-        public long longValue
+        public static explicit operator long(JsonValue value)
         {
-            get
+            if (!(value.obj is double val))
             {
-                if (!TryGetValue(out long val))
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(long)}'");
-                }
-                return val;
+                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(long)}'");
             }
-            set
-            {
-                obj = (double)value;
-                type = JsonType.Number;
-            }
+            return Convert.ToInt64(val);
         }
-        public ulong ulongValue
+        public static explicit operator ulong(JsonValue value)
         {
-            get
+            if (!(value.obj is double val))
             {
-                if (!TryGetValue(out ulong val))
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(ulong)}'");
-                }
-                return val;
+                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(ulong)}'");
             }
-            set
-            {
-                obj = (double)value;
-                type = JsonType.Number;
-            }
+            return Convert.ToUInt64(val);
         }
-        public float floatValue
+        public static explicit operator float(JsonValue value)
         {
-            get
+            if (!(value.obj is double val))
             {
-                if (!TryGetValue(out float val))
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(float)}'");
-                }
-                return val;
+                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(float)}'");
             }
-            set
-            {
-                obj = (double)value;
-                type = JsonType.Number;
-            }
+            return Convert.ToSingle(val);
         }
-        public double doubleValue
+        public static explicit operator double(JsonValue value)
         {
-            get
+            if (!(value.obj is double val))
             {
-                if (!TryGetValue(out double val))
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(double)}'");
-                }
-                return val;
+                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(double)}'");
             }
-            set
-            {
-                obj = value;
-                type = JsonType.Number;
-            }
+            return val;
         }
-        public string stringValue
+        public static explicit operator string(JsonValue value)
         {
-            get
+            if (!(value.obj is string val))
             {
-                if (!isString)
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(string)}'");
-                }
-                return (string)obj;
+                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(string)}'");
             }
-            set
-            {
-                obj = value;
-                type = value == null ? JsonType.Null : JsonType.String;
-            }
+            return val;
         }
-        public bool boolValue
+        public static explicit operator bool(JsonValue value)
         {
-            get
+            if (!(value.obj is bool val))
             {
-                if (!isBool)
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(bool)}'");
-                }
-                return (bool)obj;
+                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(bool)}'");
             }
-            set
-            {
-                obj = value;
-                type = JsonType.Bool;
-            }
+            return val;
         }
-        public JsonArray arrayValue
+        public static explicit operator JsonArray(JsonValue value)
         {
-            get
+            if (!(value.obj is JsonArray val))
             {
-                if (!TryGetValue(out JsonArray val))
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(JsonArray)}'");
-                }
-                return val;
+                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(JsonArray)}'");
             }
-            set
-            {
-                obj = value;
-                type = value == null ? JsonType.Null : JsonType.Array;
-            }
+            return val;
         }
-        public JsonObject objectValue
+        public static explicit operator JsonObject(JsonValue value)
         {
-            get
+            if (!(value.obj is JsonObject val))
             {
-                if (!TryGetValue(out JsonObject val))
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{internalObjectTypeName}' to '{typeof(JsonObject)}'");
-                }
-                return val;
+                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(JsonObject)}'");
             }
-            set
-            {
-                obj = value;
-                type = value == null ? JsonType.Null : JsonType.Object;
-            }
+            return val;
         }
 
-        // Explicit cast operators (will throw on invalid cast)
-        public static explicit operator int(JsonValue value) => value.intValue;
-        public static explicit operator uint(JsonValue value) => value.uintValue;
-        public static explicit operator long(JsonValue value) => value.longValue;
-        public static explicit operator ulong(JsonValue value) => value.ulongValue;
-        public static explicit operator float(JsonValue value) => value.floatValue;
-        public static explicit operator double(JsonValue value) => value.doubleValue;
-        public static explicit operator string(JsonValue value) => value.stringValue;
-        public static explicit operator bool(JsonValue value) => value.boolValue;
-        public static explicit operator JsonArray(JsonValue value) => value.arrayValue;
-        public static explicit operator JsonObject(JsonValue value) => value.objectValue;
+        // Implicit assignment operators
+        public static implicit operator JsonValue(int value) => new JsonValue(value);
+        public static implicit operator JsonValue(uint value) => new JsonValue(value);
+        public static implicit operator JsonValue(long value) => new JsonValue(value);
+        public static implicit operator JsonValue(ulong value) => new JsonValue(value);
+        public static implicit operator JsonValue(float value) => new JsonValue(value);
+        public static implicit operator JsonValue(double value) => new JsonValue(value);
+        public static implicit operator JsonValue(string value) => new JsonValue(value);
+        public static implicit operator JsonValue(bool value) => new JsonValue(value);
+        public static implicit operator JsonValue(JsonArray value) => new JsonValue(value);
+        public static implicit operator JsonValue(JsonObject value) => new JsonValue(value);
 
         // Parsing constants
-        private const string DoubleFormat = "G17";
-        private const string DateTimeFormat = "o";
-        private const string TrueConstant = "true";
-        private const string FalseConstant = "false";
-        private const string NullConstant = "null";
-        private const int ReadMaxRecursion = 128;
-        private const int WriteMaxRecursion = 32;
-        private const int StringBufferCapacity = 256;
-        private const int OutputBufferCapacity = 1024;
+        internal const string DoubleFormat = "G17";
+        internal const string DateTimeFormat = "o";
+        internal const string TrueConstant = "true";
+        internal const string FalseConstant = "false";
+        internal const string NullConstant = "null";
+        internal const int ReadMaxRecursion = 128;
+        internal const int WriteMaxRecursion = 32;
+        internal const int StringBufferCapacity = 256;
+        internal const int OutputBufferCapacity = 1024;
 
 
         private object obj;
 
-        private string internalObjectTypeName
-        {
-            get
-            {
-                return obj == null ? NullConstant : obj.GetType().Name;
-            }
-        }
+        internal string internalObjectTypeName => obj == null ? NullConstant : obj.GetType().Name;
 
         public override int GetHashCode()
         {
@@ -403,526 +352,36 @@ namespace AggroBird.Json
             {
                 return str;
             }
-            return ToJson(this);
+            else
+            {
+                return ToJson(this);
+            }
+        }
+        public object ToObject()
+        {
+            return obj;
         }
 
 
-        public sealed class Reader
+        public static JsonValue FromJson(string str, StringBuilder stringBuffer = null)
         {
-            private enum TokenType
-            {
-                Eof,
-                BraceOpen,
-                BraceClose,
-                BracketOpen,
-                BracketClose,
-                Comma,
-                Colon,
-                String,
-                Value,
-                Unknown = -1,
-            }
-
-            private enum CommentState
-            {
-                None,
-                SingleLine,
-                MultiLine,
-            }
-
-            // Max read recursion (how deep do we allow json files to go)
-            public int maxRecursion = ReadMaxRecursion;
-            // String buffer for building strings (optional if the input does not contain strings)
-            public StringBuilder stringBuffer = null;
-            // Allow trailing and inline comments (not part of the JSON specifications)
-            public bool allowComments = false;
-
-            private unsafe char* ptr = null;
-            private unsafe char* end = null;
-            private int lineNum = 1;
-            private CommentState commentState = CommentState.None;
-
-
-            // This function will skip ahead if it encounters valid comment tags
-            // A result of true indicates that the parser must skip the current character
-            private unsafe bool UpdateCommentState()
-            {
-                if (commentState == CommentState.None)
-                {
-                    char c = *ptr;
-                    if (c == '/')
-                    {
-                        if (allowComments && ptr < end - 1)
-                        {
-                            c = *++ptr;
-                            ptr++;
-                            switch (c)
-                            {
-                                case '/': commentState = CommentState.SingleLine; return true;
-                                case '*': commentState = CommentState.MultiLine; return true;
-                            }
-                        }
-                        throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
-                    }
-                }
-                else
-                {
-                    char c = *ptr++;
-                    switch (c)
-                    {
-                        case '*':
-                        {
-                            if (commentState == CommentState.MultiLine && ptr < end)
-                            {
-                                c = *ptr++;
-                                if (c == '/')
-                                {
-                                    commentState = CommentState.None;
-                                    return true;
-                                }
-                            }
-                        }
-                        throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
-
-                        case '\n':
-                        {
-                            if (commentState == CommentState.SingleLine)
-                            {
-                                commentState = CommentState.None;
-                            }
-
-                            lineNum++;
-                        }
-                        break;
-                    }
-                    return true;
-                }
-
-                return false;
-            }
-
-            private void EndOfFile()
-            {
-                // Ensure no dangling comments
-                if (commentState == CommentState.MultiLine)
-                {
-                    throw new FormatException($"Unterminated comment (line {lineNum})");
-                }
-            }
-
-            private unsafe TokenType ParseNext(out JsonValue val)
-            {
-                val = null;
-                while (ptr < end)
-                {
-                    if (UpdateCommentState())
-                    {
-                        continue;
-                    }
-
-                    char* beg = ptr;
-                    char c = *ptr++;
-                    switch (c)
-                    {
-                        // Skip whitespaces
-                        case ' ':
-                        case '\t':
-                        case '\r':
-                        case '\v':
-                            continue;
-
-                        case '\n':
-                            lineNum++;
-                            continue;
-
-                        // Recognized tokens
-                        case '{': return TokenType.BraceOpen;
-                        case '}': return TokenType.BraceClose;
-                        case '[': return TokenType.BracketOpen;
-                        case ']': return TokenType.BracketClose;
-                        case ',': return TokenType.Comma;
-                        case ':': return TokenType.Colon;
-                        case '"':
-                        {
-                            if (stringBuffer == null)
-                            {
-                                stringBuffer = new StringBuilder(StringBufferCapacity);
-                            }
-                            else
-                            {
-                                stringBuffer.Clear();
-                            }
-
-                            // Iterate string characters
-                            while (ptr < end)
-                            {
-                                c = *ptr++;
-                                switch (c)
-                                {
-                                    // Catch unsupported control characters
-                                    case '\0':
-                                    case '\f':
-                                    case '\n':
-                                    case '\r':
-                                    case '\t':
-                                    case '\v':
-                                    case '\b':
-                                        throw new FormatException($"Unsupported control character in string (line {lineNum})");
-
-                                    // Character escapes
-                                    case '\\':
-                                    {
-                                        long remaining = end - ptr;
-                                        if (remaining > 0)
-                                        {
-                                            switch (*ptr)
-                                            {
-                                                case '\\': stringBuffer.Append('\\'); break;
-                                                case '/': stringBuffer.Append('/'); break;
-                                                case '"': stringBuffer.Append('\"'); break;
-                                                case 'b': stringBuffer.Append('\b'); break;
-                                                case 'f': stringBuffer.Append('\f'); break;
-                                                case 'n': stringBuffer.Append('\n'); break;
-                                                case 'r': stringBuffer.Append('\r'); break;
-                                                case 't': stringBuffer.Append('\t'); break;
-                                                case 'u':
-                                                {
-                                                    // Parse hex char code
-                                                    if (remaining >= 5 && uint.TryParse(new string(ptr, 1, 4), NumberStyles.AllowHexSpecifier, null, out uint charCode))
-                                                    {
-                                                        stringBuffer.Append((char)charCode);
-
-                                                        // Skip escaped character + char code
-                                                        ptr += 5;
-                                                        continue;
-                                                    }
-                                                }
-                                                goto InvalidEscape;
-                                                default: goto InvalidEscape;
-                                            }
-
-                                            // Skip escaped character
-                                            ptr++;
-                                            continue;
-                                        }
-                                    InvalidEscape:
-                                        throw new FormatException($"Invalid character escape sequence (line {lineNum})");
-                                    }
-
-                                    // End of string
-                                    case '"':
-                                    {
-                                        string strValue = stringBuffer.Length > 0 ? stringBuffer.ToString() : string.Empty;
-                                        val = new JsonValue(strValue, JsonType.String);
-                                        return TokenType.String;
-                                    }
-                                }
-                                stringBuffer.Append(c);
-                            }
-                            throw new FormatException($"Unterminated string (line {lineNum})");
-                        }
-                        default:
-                        {
-                            // Only allow numbers, letters and minus
-                            if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-')
-                            {
-                                // Continue until token or whitespace
-                                for (; ptr < end; ptr++)
-                                {
-                                    switch (*ptr)
-                                    {
-                                        case ' ':
-                                        case '\t':
-                                        case '\v':
-                                        case '\r':
-                                        case '\n':
-                                        case '/':
-                                        case '{':
-                                        case '}':
-                                        case '[':
-                                        case ']':
-                                        case ',':
-                                        case ':':
-                                        case '"':
-                                            goto ParseValue;
-                                    }
-                                }
-
-                            ParseValue:
-                                // Try parse value
-                                long len = ptr - beg;
-                                if (len > 0)
-                                {
-                                    if (len > int.MaxValue)
-                                    {
-                                        throw new OverflowException();
-                                    }
-
-                                    string subStr = new string(beg, 0, (int)len);
-                                    if (char.IsDigit(subStr[0]) || subStr[0] == '-')
-                                    {
-                                        if (double.TryParse(subStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
-                                        {
-                                            val = new JsonValue(d, JsonType.Number);
-                                            return TokenType.Value;
-                                        }
-                                    }
-                                    else if (subStr == TrueConstant)
-                                    {
-                                        val = new JsonValue(true, JsonType.Bool);
-                                        return TokenType.Value;
-                                    }
-                                    else if (subStr == FalseConstant)
-                                    {
-                                        val = new JsonValue(false, JsonType.Bool);
-                                        return TokenType.Value;
-                                    }
-                                    else if (subStr == NullConstant)
-                                    {
-                                        val = new JsonValue(null, JsonType.Null);
-                                        return TokenType.Value;
-                                    }
-
-                                    throw new FormatException($"Unknown expression '{subStr}' (line {lineNum})");
-                                }
-                            }
-                            throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
-                        }
-                    }
-                }
-
-                // End of file
-                EndOfFile();
-                return TokenType.Eof;
-            }
-
-            private unsafe TokenType PeekNext(bool consume)
-            {
-                // Continue iterating until a known token is encountered
-                while (ptr < end)
-                {
-                    if (UpdateCommentState())
-                    {
-                        continue;
-                    }
-
-                    char c = *ptr;
-                    switch (c)
-                    {
-                        // Skip whitespaces
-                        case ' ':
-                        case '\t':
-                        case '\v':
-                        case '\r':
-                            ptr++;
-                            continue;
-
-                        case '\n':
-                            ptr++;
-                            lineNum++;
-                            continue;
-
-                        // If its a known token, we can consume it
-                        case '{': if (consume) ptr++; return TokenType.BraceOpen;
-                        case '}': if (consume) ptr++; return TokenType.BraceClose;
-                        case '[': if (consume) ptr++; return TokenType.BracketOpen;
-                        case ']': if (consume) ptr++; return TokenType.BracketClose;
-                        case ',': if (consume) ptr++; return TokenType.Comma;
-                        case ':': if (consume) ptr++; return TokenType.Colon;
-
-                        default: return TokenType.Unknown;
-                    }
-                }
-
-                // Ensure no dangling comments
-                EndOfFile();
-                return TokenType.Eof;
-            }
-            private unsafe bool PeekNext(TokenType expected)
-            {
-                TokenType encountered = PeekNext(false);
-                if (encountered == expected)
-                {
-                    if (encountered != TokenType.Eof)
-                    {
-                        ptr++;
-                    }
-                    return true;
-                }
-                return false;
-            }
-
-            private unsafe JsonValue ParseObjectRecursive(int level)
-            {
-                if (level >= maxRecursion)
-                {
-                    throw new OverflowException($"Max recursion level reached ({maxRecursion})");
-                }
-                level++;
-
-                JsonObject obj = new JsonObject();
-                if (!PeekNext(TokenType.BraceClose))
-                {
-                Next:
-                    if (ParseNext(out JsonValue key) != TokenType.String)
-                    {
-                        throw new FormatException($"Expected key string (line {lineNum})");
-                    }
-
-                    if (!PeekNext(TokenType.Colon))
-                    {
-                        throw new FormatException($"Missing colon after key string (line {lineNum})");
-                    }
-
-                    switch (ParseNext(out JsonValue val))
-                    {
-                        case TokenType.String:
-                        case TokenType.Value:
-                            obj.Add(key.stringValue, val);
-                            break;
-                        case TokenType.BraceOpen:
-                            obj.Add(key.stringValue, ParseObjectRecursive(level));
-                            break;
-                        case TokenType.BracketOpen:
-                            obj.Add(key.stringValue, ParseArrayRecursive(level));
-                            break;
-
-                        default:
-                            throw new FormatException($"Expected value (line {lineNum})");
-                    }
-
-                    switch (PeekNext(true))
-                    {
-                        case TokenType.BraceClose: goto Exit;
-                        case TokenType.Comma: goto Next;
-                        default: throw new FormatException($"Expected closing brace (line {lineNum})");
-                    }
-                }
-
-            Exit:
-                return new JsonValue(obj, JsonType.Object);
-            }
-            private unsafe JsonValue ParseArrayRecursive(int level)
-            {
-                if (level >= maxRecursion)
-                {
-                    throw new OverflowException($"Max recursion level reached ({maxRecursion})");
-                }
-                level++;
-
-                JsonArray arr = new JsonArray();
-                if (!PeekNext(TokenType.BracketClose))
-                {
-                Next:
-                    switch (ParseNext(out JsonValue val))
-                    {
-                        case TokenType.String:
-                        case TokenType.Value:
-                            arr.Add(val);
-                            break;
-                        case TokenType.BraceOpen:
-                            arr.Add(ParseObjectRecursive(level));
-                            break;
-                        case TokenType.BracketOpen:
-                            arr.Add(ParseArrayRecursive(level));
-                            break;
-
-                        default:
-                            throw new FormatException($"Expected value (line {lineNum})");
-                    }
-
-                    switch (PeekNext(true))
-                    {
-                        case TokenType.BracketClose: goto Exit;
-                        case TokenType.Comma: goto Next;
-                        default: throw new FormatException($"Expected closing bracket (line {lineNum})");
-                    }
-                }
-
-            Exit:
-                return new JsonValue(arr, JsonType.Array);
-            }
-
-            private unsafe JsonValue Read(string str)
-            {
-                fixed (char* p = str)
-                {
-                    ptr = p;
-                    end = p + str.Length;
-                    lineNum = 1;
-                    commentState = CommentState.None;
-
-                    switch (ParseNext(out JsonValue result))
-                    {
-                        case TokenType.BraceOpen:
-                            result = ParseObjectRecursive(0);
-                            break;
-                        case TokenType.BracketOpen:
-                            result = ParseArrayRecursive(0);
-                            break;
-                        case TokenType.Value:
-                        case TokenType.String:
-                            break;
-                        default:
-                            throw new FormatException("Invalid Json string");
-                    }
-
-                    // Ensure eof
-                    if (!PeekNext(TokenType.Eof))
-                    {
-                        throw new FormatException($"Unexpected expression at the end of file (line {lineNum})");
-                    }
-
-                    return result;
-                }
-            }
-
-            public JsonValue FromJson(string str)
-            {
-                if (str == null) throw new ArgumentNullException(nameof(str));
-                if (str.Length == 0) throw new ArgumentException($"Invalid Json string");
-                return Read(str);
-            }
-            public object FromJson(string str, Type targetType)
-            {
-                if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-                return ReadRecursive(targetType, FromJson(str));
-            }
-            public T FromJson<T>(string str)
-            {
-                return (T)ReadRecursive(typeof(T), FromJson(str));
-            }
+            return new JsonReader { stringBuffer = stringBuffer }.FromJson(str);
         }
 
-        public static JsonValue FromJson(string str, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null)
+        public static object FromJson(string str, Type targetType, StringBuilder stringBuffer = null)
         {
-            return new Reader { maxRecursion = maxRecursion, stringBuffer = stringBuffer }.FromJson(str);
+            return FromJson(FromJson(str, stringBuffer), targetType);
+        }
+        public static T FromJson<T>(string str, StringBuilder stringBuffer = null)
+        {
+            return (T)FromJson(FromJson(str, stringBuffer), typeof(T));
         }
 
-        public static object FromJson(string str, Type targetType, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null)
+        public static object FromJson(JsonValue jsonValue, Type targetType)
         {
-            return new Reader { maxRecursion = maxRecursion, stringBuffer = stringBuffer }.FromJson(str, targetType);
-        }
-        public static T FromJson<T>(string str, int maxRecursion = ReadMaxRecursion, StringBuilder stringBuffer = null)
-        {
-            return new Reader { maxRecursion = maxRecursion, stringBuffer = stringBuffer }.FromJson<T>(str);
-        }
-
-        public static object FromJson(JsonValue jsonObject, Type targetType)
-        {
-            if (jsonObject == null) throw new ArgumentNullException(nameof(jsonObject));
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-            return ReadRecursive(targetType, jsonObject);
-        }
-        public static T FromJson<T>(JsonValue jsonObject)
-        {
-            if (jsonObject == null) throw new ArgumentNullException(nameof(jsonObject));
-            return (T)ReadRecursive(typeof(T), jsonObject);
-        }
 
-        private static object ReadRecursive(Type targetType, JsonValue jsonObject)
-        {
-            if (jsonObject.isNull)
+            if (jsonValue.isNull)
             {
                 return null;
             }
@@ -933,7 +392,7 @@ namespace AggroBird.Json
                 case TypeCode.String:
                 case TypeCode.Char:
                 {
-                    string str = jsonObject.stringValue;
+                    string str = (string)jsonValue;
                     if (typeCode == TypeCode.Char)
                     {
                         if (str.Length == 1)
@@ -946,75 +405,76 @@ namespace AggroBird.Json
                 }
 
                 case TypeCode.Boolean:
-                    return jsonObject.boolValue;
+                    return (bool)jsonValue;
 
                 case TypeCode.SByte:
-                    return (sbyte)jsonObject.intValue;
+                    return (sbyte)(int)jsonValue;
                 case TypeCode.Byte:
-                    return (byte)jsonObject.intValue;
+                    return (byte)(int)jsonValue;
                 case TypeCode.Int16:
-                    return (short)jsonObject.intValue;
+                    return (short)(int)jsonValue;
                 case TypeCode.UInt16:
-                    return (ushort)jsonObject.intValue;
+                    return (ushort)(int)jsonValue;
                 case TypeCode.Int32:
-                    return jsonObject.intValue;
+                    return (int)jsonValue;
                 case TypeCode.UInt32:
-                    return jsonObject.uintValue;
+                    return (uint)jsonValue;
                 case TypeCode.Int64:
-                    return jsonObject.longValue;
+                    return (long)jsonValue;
                 case TypeCode.UInt64:
-                    return jsonObject.ulongValue;
+                    return (ulong)jsonValue;
 
                 case TypeCode.Single:
-                    return jsonObject.floatValue;
+                    return (float)jsonValue;
                 case TypeCode.Double:
-                    return jsonObject.doubleValue;
+                    return (double)jsonValue;
 
                 case TypeCode.DateTime:
-                    return DateTime.Parse(jsonObject.stringValue, CultureInfo.InvariantCulture);
+                    return DateTime.Parse((string)jsonValue, CultureInfo.InvariantCulture);
             }
 
             if (targetType == typeof(JsonValue))
             {
-                return jsonObject;
+                return jsonValue;
             }
             else if (targetType == typeof(JsonArray))
             {
-                return jsonObject.arrayValue;
+                return (JsonArray)jsonValue;
             }
             else if (targetType == typeof(JsonObject))
             {
-                return jsonObject.objectValue;
+                return (JsonObject)jsonValue;
             }
             else if (targetType.IsArray)
             {
-                JsonArray subObjects = jsonObject.arrayValue;
+                JsonArray jsonArray = (JsonArray)jsonValue;
                 Type elementType = targetType.GetElementType();
-                Array obj = Array.CreateInstance(elementType, subObjects.Count);
-                for (int i = 0; i < subObjects.Count; i++)
+                Array array = Array.CreateInstance(elementType, jsonArray.Count);
+                for (int i = 0; i < jsonArray.Count; i++)
                 {
-                    obj.SetValue(ReadRecursive(elementType, subObjects[i]), i);
+                    array.SetValue(FromJson(jsonArray[i], elementType), i);
                 }
-                return obj;
+                return array;
             }
             else if (typeof(IList).IsAssignableFrom(targetType))
             {
+                JsonArray jsonArray = (JsonArray)jsonValue;
                 Type[] arguments = targetType.GetGenericArguments();
                 if (arguments.Length == 0)
                 {
                     throw new InvalidCastException($"Unable to derive generic types for collection '{targetType}'");
                 }
-                IList obj = Activator.CreateInstance(targetType) as IList;
-                JsonArray subObjects = jsonObject.arrayValue;
+                IList list = Activator.CreateInstance(targetType) as IList;
                 Type valueType = arguments[0];
-                for (int i = 0; i < subObjects.Count; i++)
+                for (int i = 0; i < jsonArray.Count; i++)
                 {
-                    obj.Add(ReadRecursive(valueType, subObjects[i]));
+                    list.Add(FromJson(jsonArray[i], valueType));
                 }
-                return obj;
+                return list;
             }
             else if (typeof(IDictionary).IsAssignableFrom(targetType))
             {
+                JsonObject jsonObject = (JsonObject)jsonValue;
                 Type[] arguments = targetType.GetGenericArguments();
                 if (arguments.Length < 2)
                 {
@@ -1024,313 +484,793 @@ namespace AggroBird.Json
                 {
                     throw new InvalidCastException($"Dictionary key type has to be string");
                 }
-                JsonObject dictionary = jsonObject.obj as JsonObject;
-                if (dictionary == null)
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{jsonObject.internalObjectTypeName}' to '{typeof(JsonObject)}'");
-                }
-                IDictionary obj = Activator.CreateInstance(targetType) as IDictionary;
+                IDictionary dictionary = Activator.CreateInstance(targetType) as IDictionary;
                 Type valueType = arguments[1];
-                foreach (var kv in dictionary)
+                foreach (var kv in jsonObject)
                 {
-                    obj.Add(kv.Key, ReadRecursive(valueType, kv.Value));
+                    dictionary.Add(kv.Key, FromJson(kv.Value, valueType));
                 }
-                return obj;
+                return dictionary;
             }
             else
             {
-                JsonObject dictionary = jsonObject.obj as JsonObject;
-                if (dictionary == null)
-                {
-                    throw new InvalidCastException($"Invalid Json cast: '{jsonObject.internalObjectTypeName}' to '{typeof(JsonObject)}'");
-                }
+                JsonObject jsonObject = (JsonObject)jsonValue;
                 object obj = Activator.CreateInstance(targetType);
-                foreach (var kv in dictionary)
+                foreach (var kv in jsonObject)
                 {
                     FieldInfo field = targetType.GetField(kv.Key, BindingFlags.Instance | BindingFlags.Public);
                     if (field == null)
                     {
                         throw new MissingFieldException($"Failed to find field '{kv.Key}' in type '{targetType}'");
                     }
-                    field.SetValue(obj, ReadRecursive(field.FieldType, kv.Value));
+                    field.SetValue(obj, FromJson(kv.Value, field.FieldType));
                 }
                 return obj;
             }
 
-            throw new InvalidCastException($"Invalid Json cast: '{jsonObject.internalObjectTypeName}' to '{targetType}'");
+            throw new InvalidCastException($"Invalid Json cast: '{jsonValue.internalObjectTypeName}' to '{targetType}'");
+        }
+        public static T FromJson<T>(JsonValue jsonObject)
+        {
+            return (T)FromJson(jsonObject, typeof(T));
         }
 
-
-        public sealed class Writer
+        public static string ToJson(object value, StringBuilder stringBuffer = null)
         {
-            private const string AnonymousTypeName = "AnonymousType";
-            private const string UnicodePrefix = "\\u00";
+            return new JsonWriter { stringBuffer = stringBuffer }.ToJson(value);
+        }
+    }
 
-            // Max read recursion (how deep do we allow object references and arrays to go)
-            public int maxRecursion = WriteMaxRecursion;
-            // Stringbuffer used to build the output (will be reused if left unchanged)
-            public StringBuilder stringBuffer = null;
+    public sealed class JsonReader
+    {
+        private enum TokenType
+        {
+            Eof,
+            BraceOpen,
+            BraceClose,
+            BracketOpen,
+            BracketClose,
+            Comma,
+            Colon,
+            String,
+            Value,
+            Unknown = -1,
+        }
 
-            public string ToJson(object value)
+        private enum CommentState
+        {
+            None,
+            SingleLine,
+            MultiLine,
+        }
+
+        // Max read recursion (how deep do we allow json files to go)
+        public int maxRecursion = JsonValue.ReadMaxRecursion;
+        // String buffer for building strings (optional if the input does not contain strings)
+        public StringBuilder stringBuffer = null;
+        // Allow trailing and inline comments (not part of the JSON specifications)
+        public bool allowComments = false;
+
+        private unsafe char* ptr = null;
+        private unsafe char* end = null;
+        private int lineNum = 1;
+        private CommentState commentState = CommentState.None;
+
+
+        // This function will skip ahead if it encounters valid comment tags
+        // A result of true indicates that the parser must skip the current character
+        private unsafe bool UpdateCommentState()
+        {
+            if (commentState == CommentState.None)
             {
-                if (stringBuffer == null)
+                char c = *ptr;
+                if (c == '/')
                 {
-                    stringBuffer = new StringBuilder(OutputBufferCapacity);
-                }
-                else
-                {
-                    stringBuffer.Clear();
-                }
-
-                WriteRecursive(value, 0);
-
-                return stringBuffer.ToString();
-            }
-
-            private void WriteRecursive(object value, int level)
-            {
-                if (level >= maxRecursion)
-                {
-                    throw new OverflowException($"Max recursion level reached ({maxRecursion})");
-                }
-                level++;
-
-                if (value is JsonValue asJsonValue)
-                {
-                    value = asJsonValue.obj;
-                }
-
-                // Null
-                if (value == null)
-                {
-                    stringBuffer.Append(NullConstant);
-                    return;
-                }
-
-                // Base types
-                Type type = value.GetType();
-                TypeCode typeCode = Type.GetTypeCode(type);
-                switch (typeCode)
-                {
-                    case TypeCode.String:
-                        WriteValue((string)value);
-                        return;
-                    case TypeCode.Char:
-                        WriteValue((char)value);
-                        return;
-                    case TypeCode.Boolean:
-                        WriteValue((bool)value);
-                        return;
-
-                    case TypeCode.SByte:
-                    case TypeCode.Byte:
-                    case TypeCode.Int16:
-                    case TypeCode.UInt16:
-                    case TypeCode.Int32:
-                    case TypeCode.UInt32:
-                    case TypeCode.Int64:
-                    case TypeCode.UInt64:
-                        if (type.IsEnum)
+                    if (allowComments && ptr < end - 1)
+                    {
+                        c = *++ptr;
+                        ptr++;
+                        switch (c)
                         {
-                            WriteEnumValue(value, typeCode);
-                            return;
-                        }
-                        stringBuffer.Append(value.ToString());
-                        return;
-
-                    case TypeCode.Single:
-                        WriteValue((float)value);
-                        return;
-                    case TypeCode.Double:
-                        WriteValue((double)value);
-                        return;
-                    case TypeCode.DateTime:
-                        WriteValue(((DateTime)value).ToString(DateTimeFormat, CultureInfo.InvariantCulture));
-                        return;
-                }
-
-                bool written = false;
-                if (value is IDictionary dictionary)
-                {
-                    // Dictionaries/objects
-                    stringBuffer.Append('{');
-                    foreach (DictionaryEntry entry in dictionary)
-                    {
-                        if (written) stringBuffer.Append(',');
-                        written = true;
-                        if (!(entry.Key is string key))
-                        {
-                            throw new InvalidCastException($"Dictionary key type has to be string");
-                        }
-                        WriteValue(entry.Key as string);
-                        stringBuffer.Append(':');
-                        WriteRecursive(entry.Value, level);
-                    }
-                    stringBuffer.Append('}');
-                    return;
-                }
-                else if (value is IEnumerable list)
-                {
-                    // Arrays
-                    stringBuffer.Append('[');
-                    foreach (object entry in list)
-                    {
-                        if (written) stringBuffer.Append(',');
-                        written = true;
-                        WriteRecursive(entry, level);
-                    }
-                    stringBuffer.Append(']');
-                    return;
-                }
-                else
-                {
-                    // Structs/classes
-                    stringBuffer.Append('{');
-                    foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
-                    {
-                        if (written) stringBuffer.Append(',');
-                        written = true;
-                        WriteValue(field.Name);
-                        stringBuffer.Append(':');
-                        WriteRecursive(field.GetValue(value), level);
-                    }
-                    if (IsAnonymousType(type))
-                    {
-                        // Read properties (anonymous types only)
-                        foreach (PropertyInfo property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
-                        {
-                            if (!property.CanRead) continue;
-                            if (written) stringBuffer.Append(',');
-                            written = true;
-                            WriteValue(property.Name);
-                            stringBuffer.Append(':');
-                            WriteRecursive(property.GetValue(value), level);
+                            case '/': commentState = CommentState.SingleLine; return true;
+                            case '*': commentState = CommentState.MultiLine; return true;
                         }
                     }
-                    stringBuffer.Append('}');
-                    return;
+                    throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
                 }
-
-                throw new FormatException($"Failed to serialize field type '{type}'");
             }
-
-            private static bool IsAnonymousType(Type type)
+            else
             {
-                return type.GetCustomAttributes(typeof(CompilerGeneratedAttribute), false).Length > 0 && type.FullName.Contains(AnonymousTypeName);
-            }
-
-            private bool WriteValue(char value)
-            {
-                // Escape unsupported control characters (as per JSON standard)
-                switch (value)
+                char c = *ptr++;
+                switch (c)
                 {
-                    case '\t':
-                        stringBuffer.Append('\\');
-                        stringBuffer.Append('t');
-                        return true;
+                    case '*':
+                    {
+                        if (commentState == CommentState.MultiLine && ptr < end)
+                        {
+                            c = *ptr++;
+                            if (c == '/')
+                            {
+                                commentState = CommentState.None;
+                                return true;
+                            }
+                        }
+                    }
+                    throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
+
                     case '\n':
-                        stringBuffer.Append('\\');
-                        stringBuffer.Append('n');
-                        return true;
-                    case '\r':
-                        stringBuffer.Append('\\');
-                        stringBuffer.Append('r');
-                        return true;
-                    case '\f':
-                        stringBuffer.Append('\\');
-                        stringBuffer.Append('f');
-                        return true;
-                    case '\b':
-                        stringBuffer.Append('\\');
-                        stringBuffer.Append('b');
-                        return true;
-                    case '"':
-                        stringBuffer.Append('\\');
-                        stringBuffer.Append('\"');
-                        return true;
-                    case '\\':
-                        stringBuffer.Append('\\');
-                        stringBuffer.Append('\\');
-                        return true;
-                }
-
-                // Anything above 1f (space and onwards) can be represented as character,
-                // the output string will be converted to utf8 at save time
-                if (value >= '\u001f')
-                {
-                    stringBuffer.Append(value);
-                    return true;
-                }
-
-                return false;
-            }
-            private void WriteValue(string value)
-            {
-                stringBuffer.Append('"');
-                foreach (char c in value)
-                {
-                    if (!WriteValue(c))
                     {
-                        // Handle unsupported characters
-                        stringBuffer.Append(UnicodePrefix);
-                        int num = c;
-                        stringBuffer.Append((char)(48 + (num >> 4)));
-                        num &= 0xF;
-                        stringBuffer.Append((char)((num < 10) ? (48 + num) : (97 + (num - 10))));
+                        if (commentState == CommentState.SingleLine)
+                        {
+                            commentState = CommentState.None;
+                        }
+
+                        lineNum++;
+                    }
+                    break;
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        private void EndOfFile()
+        {
+            // Ensure no dangling comments
+            if (commentState == CommentState.MultiLine)
+            {
+                throw new FormatException($"Unterminated comment (line {lineNum})");
+            }
+        }
+
+        private unsafe TokenType ParseNext(out JsonValue val)
+        {
+            val = new JsonValue();
+
+            while (ptr < end)
+            {
+                if (UpdateCommentState())
+                {
+                    continue;
+                }
+
+                char* beg = ptr;
+                char c = *ptr++;
+                switch (c)
+                {
+                    // Skip whitespaces
+                    case ' ':
+                    case '\t':
+                    case '\r':
+                    case '\v':
+                        continue;
+
+                    case '\n':
+                        lineNum++;
+                        continue;
+
+                    // Recognized tokens
+                    case '{': return TokenType.BraceOpen;
+                    case '}': return TokenType.BraceClose;
+                    case '[': return TokenType.BracketOpen;
+                    case ']': return TokenType.BracketClose;
+                    case ',': return TokenType.Comma;
+                    case ':': return TokenType.Colon;
+                    case '"':
+                    {
+                        if (stringBuffer == null)
+                        {
+                            stringBuffer = new StringBuilder(JsonValue.StringBufferCapacity);
+                        }
+                        else
+                        {
+                            stringBuffer.Clear();
+                        }
+
+                        // Iterate string characters
+                        while (ptr < end)
+                        {
+                            c = *ptr++;
+                            switch (c)
+                            {
+                                // Catch unsupported control characters
+                                case '\0':
+                                case '\f':
+                                case '\n':
+                                case '\r':
+                                case '\t':
+                                case '\v':
+                                case '\b':
+                                    throw new FormatException($"Unsupported control character in string (line {lineNum})");
+
+                                // Character escapes
+                                case '\\':
+                                {
+                                    long remaining = end - ptr;
+                                    if (remaining > 0)
+                                    {
+                                        switch (*ptr)
+                                        {
+                                            case '\\': stringBuffer.Append('\\'); break;
+                                            case '/': stringBuffer.Append('/'); break;
+                                            case '"': stringBuffer.Append('\"'); break;
+                                            case 'b': stringBuffer.Append('\b'); break;
+                                            case 'f': stringBuffer.Append('\f'); break;
+                                            case 'n': stringBuffer.Append('\n'); break;
+                                            case 'r': stringBuffer.Append('\r'); break;
+                                            case 't': stringBuffer.Append('\t'); break;
+                                            case 'u':
+                                            {
+                                                // Parse hex char code
+                                                if (remaining >= 5 && uint.TryParse(new string(ptr, 1, 4), NumberStyles.AllowHexSpecifier, null, out uint charCode))
+                                                {
+                                                    stringBuffer.Append((char)charCode);
+
+                                                    // Skip escaped character + char code
+                                                    ptr += 5;
+                                                    continue;
+                                                }
+                                            }
+                                            goto InvalidEscape;
+                                            default: goto InvalidEscape;
+                                        }
+
+                                        // Skip escaped character
+                                        ptr++;
+                                        continue;
+                                    }
+                                InvalidEscape:
+                                    throw new FormatException($"Invalid character escape sequence (line {lineNum})");
+                                }
+
+                                // End of string
+                                case '"':
+                                {
+                                    val = stringBuffer.Length > 0 ? stringBuffer.ToString() : string.Empty;
+                                    return TokenType.String;
+                                }
+                            }
+                            stringBuffer.Append(c);
+                        }
+                        throw new FormatException($"Unterminated string (line {lineNum})");
+                    }
+                    default:
+                    {
+                        // Only allow numbers, letters and minus
+                        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-')
+                        {
+                            // Continue until token or whitespace
+                            for (; ptr < end; ptr++)
+                            {
+                                switch (*ptr)
+                                {
+                                    case ' ':
+                                    case '\t':
+                                    case '\v':
+                                    case '\r':
+                                    case '\n':
+                                    case '/':
+                                    case '{':
+                                    case '}':
+                                    case '[':
+                                    case ']':
+                                    case ',':
+                                    case ':':
+                                    case '"':
+                                        goto ParseValue;
+                                }
+                            }
+
+                        ParseValue:
+                            // Try parse value
+                            long len = ptr - beg;
+                            if (len > 0)
+                            {
+                                if (len > int.MaxValue)
+                                {
+                                    throw new OverflowException();
+                                }
+
+                                string subStr = new string(beg, 0, (int)len);
+                                if (char.IsDigit(subStr[0]) || subStr[0] == '-')
+                                {
+                                    if (double.TryParse(subStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+                                    {
+                                        val = d;
+                                        return TokenType.Value;
+                                    }
+                                }
+                                else if (subStr == JsonValue.TrueConstant)
+                                {
+                                    val = true;
+                                    return TokenType.Value;
+                                }
+                                else if (subStr == JsonValue.FalseConstant)
+                                {
+                                    val = false;
+                                    return TokenType.Value;
+                                }
+                                else if (subStr == JsonValue.NullConstant)
+                                {
+                                    return TokenType.Value;
+                                }
+
+                                throw new FormatException($"Unknown expression '{subStr}' (line {lineNum})");
+                            }
+                        }
+                        throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
                     }
                 }
-                stringBuffer.Append('"');
-            }
-            private void WriteValue(bool value)
-            {
-                stringBuffer.Append(value ? TrueConstant : FalseConstant);
-            }
-            private void WriteValue(float value)
-            {
-                stringBuffer.Append(value.ToString(DoubleFormat, CultureInfo.InvariantCulture));
-            }
-            private void WriteValue(double value)
-            {
-                stringBuffer.Append(value.ToString(DoubleFormat, CultureInfo.InvariantCulture));
             }
 
-            private void WriteEnumValue(object value, TypeCode typeCode)
+            // End of file
+            EndOfFile();
+            return TokenType.Eof;
+        }
+
+        private unsafe TokenType PeekNext(bool consume)
+        {
+            // Continue iterating until a known token is encountered
+            while (ptr < end)
             {
-                switch (typeCode)
+                if (UpdateCommentState())
                 {
-                    case TypeCode.SByte:
-                        stringBuffer.Append((sbyte)value);
+                    continue;
+                }
+
+                char c = *ptr;
+                switch (c)
+                {
+                    // Skip whitespaces
+                    case ' ':
+                    case '\t':
+                    case '\v':
+                    case '\r':
+                        ptr++;
+                        continue;
+
+                    case '\n':
+                        ptr++;
+                        lineNum++;
+                        continue;
+
+                    // If its a known token, we can consume it
+                    case '{': if (consume) ptr++; return TokenType.BraceOpen;
+                    case '}': if (consume) ptr++; return TokenType.BraceClose;
+                    case '[': if (consume) ptr++; return TokenType.BracketOpen;
+                    case ']': if (consume) ptr++; return TokenType.BracketClose;
+                    case ',': if (consume) ptr++; return TokenType.Comma;
+                    case ':': if (consume) ptr++; return TokenType.Colon;
+
+                    default: return TokenType.Unknown;
+                }
+            }
+
+            // Ensure no dangling comments
+            EndOfFile();
+            return TokenType.Eof;
+        }
+        private unsafe bool PeekNext(TokenType expected)
+        {
+            TokenType encountered = PeekNext(false);
+            if (encountered == expected)
+            {
+                if (encountered != TokenType.Eof)
+                {
+                    ptr++;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        private unsafe JsonValue ParseObjectRecursive(int level)
+        {
+            if (level >= maxRecursion)
+            {
+                throw new OverflowException($"Max recursion level reached ({maxRecursion})");
+            }
+            level++;
+
+            JsonObject jsonObject = new JsonObject();
+            if (!PeekNext(TokenType.BraceClose))
+            {
+            Next:
+                if (ParseNext(out JsonValue key) != TokenType.String)
+                {
+                    throw new FormatException($"Expected key string (line {lineNum})");
+                }
+
+                if (!PeekNext(TokenType.Colon))
+                {
+                    throw new FormatException($"Missing colon after key string (line {lineNum})");
+                }
+
+                switch (ParseNext(out JsonValue val))
+                {
+                    case TokenType.String:
+                    case TokenType.Value:
+                        jsonObject.Add((string)key, val);
                         break;
-                    case TypeCode.Int16:
-                        stringBuffer.Append((short)value);
+                    case TokenType.BraceOpen:
+                        jsonObject.Add((string)key, ParseObjectRecursive(level));
                         break;
-                    case TypeCode.UInt16:
-                        stringBuffer.Append((ushort)value);
+                    case TokenType.BracketOpen:
+                        jsonObject.Add((string)key, ParseArrayRecursive(level));
                         break;
-                    case TypeCode.Int32:
-                        stringBuffer.Append((int)value);
+
+                    default:
+                        throw new FormatException($"Expected value (line {lineNum})");
+                }
+
+                switch (PeekNext(true))
+                {
+                    case TokenType.BraceClose: goto Exit;
+                    case TokenType.Comma: goto Next;
+                    default: throw new FormatException($"Expected closing brace (line {lineNum})");
+                }
+            }
+
+        Exit:
+            return jsonObject;
+        }
+        private unsafe JsonValue ParseArrayRecursive(int level)
+        {
+            if (level >= maxRecursion)
+            {
+                throw new OverflowException($"Max recursion level reached ({maxRecursion})");
+            }
+            level++;
+
+            JsonArray jsonArray = new JsonArray();
+            if (!PeekNext(TokenType.BracketClose))
+            {
+            Next:
+                switch (ParseNext(out JsonValue val))
+                {
+                    case TokenType.String:
+                    case TokenType.Value:
+                        jsonArray.Add(val);
                         break;
-                    case TypeCode.Byte:
-                        stringBuffer.Append((byte)value);
+                    case TokenType.BraceOpen:
+                        jsonArray.Add(ParseObjectRecursive(level));
                         break;
-                    case TypeCode.UInt32:
-                        stringBuffer.Append((uint)value);
+                    case TokenType.BracketOpen:
+                        jsonArray.Add(ParseArrayRecursive(level));
                         break;
-                    case TypeCode.Int64:
-                        stringBuffer.Append((long)value);
+
+                    default:
+                        throw new FormatException($"Expected value (line {lineNum})");
+                }
+
+                switch (PeekNext(true))
+                {
+                    case TokenType.BracketClose: goto Exit;
+                    case TokenType.Comma: goto Next;
+                    default: throw new FormatException($"Expected closing bracket (line {lineNum})");
+                }
+            }
+
+        Exit:
+            return jsonArray;
+        }
+
+        private unsafe JsonValue Read(string str)
+        {
+            fixed (char* p = str)
+            {
+                ptr = p;
+                end = p + str.Length;
+                lineNum = 1;
+                commentState = CommentState.None;
+
+                switch (ParseNext(out JsonValue result))
+                {
+                    case TokenType.BraceOpen:
+                        result = ParseObjectRecursive(0);
                         break;
-                    case TypeCode.UInt64:
-                        stringBuffer.Append((ulong)value);
+                    case TokenType.BracketOpen:
+                        result = ParseArrayRecursive(0);
+                        break;
+                    case TokenType.Value:
+                    case TokenType.String:
                         break;
                     default:
-                        throw new InvalidOperationException($"Invalid type code for enum: '{typeCode}'");
+                        throw new FormatException("Invalid Json string");
                 }
+
+                // Ensure eof
+                if (!PeekNext(TokenType.Eof))
+                {
+                    throw new FormatException($"Unexpected expression at the end of file (line {lineNum})");
+                }
+
+                return result;
             }
         }
 
-        public static string ToJson(object value, int maxRecursion = WriteMaxRecursion, StringBuilder stringBuffer = null)
+        public JsonValue FromJson(string str)
         {
-            return new Writer { maxRecursion = maxRecursion, stringBuffer = stringBuffer }.ToJson(value);
+            if (str == null) throw new ArgumentNullException(nameof(str));
+            if (str.Length == 0) throw new ArgumentException($"Invalid Json string");
+            return Read(str);
+        }
+        public object FromJson(string str, Type targetType)
+        {
+            if (targetType == null) throw new ArgumentNullException(nameof(targetType));
+            return JsonValue.FromJson(FromJson(str), targetType);
+        }
+        public T FromJson<T>(string str)
+        {
+            return (T)JsonValue.FromJson(FromJson(str), typeof(T));
+        }
+    }
+
+    public sealed class JsonWriter
+    {
+        private const string AnonymousTypeName = "AnonymousType";
+        private const string UnicodePrefix = "\\u00";
+
+        // Max read recursion (how deep do we allow object references to go)
+        public int maxRecursion = JsonValue.WriteMaxRecursion;
+        // Stringbuffer used to build the output (will be reused if left unchanged)
+        public StringBuilder stringBuffer = null;
+
+        public string ToJson(object value)
+        {
+            if (stringBuffer == null)
+            {
+                stringBuffer = new StringBuilder(JsonValue.OutputBufferCapacity);
+            }
+            else
+            {
+                stringBuffer.Clear();
+            }
+
+            WriteRecursive(value, 0);
+
+            return stringBuffer.ToString();
+        }
+
+        private void WriteRecursive(object value, int level)
+        {
+            if (level >= maxRecursion)
+            {
+                throw new OverflowException($"Max recursion level reached ({maxRecursion})");
+            }
+            level++;
+
+            if (value is JsonValue asJsonValue)
+            {
+                value = asJsonValue.ToObject();
+            }
+
+            // Null
+            if (value == null)
+            {
+                stringBuffer.Append(JsonValue.NullConstant);
+                return;
+            }
+
+            // Base types
+            Type type = value.GetType();
+            TypeCode typeCode = Type.GetTypeCode(type);
+            switch (typeCode)
+            {
+                case TypeCode.String:
+                    WriteValue((string)value);
+                    return;
+                case TypeCode.Char:
+                    WriteValue((char)value);
+                    return;
+                case TypeCode.Boolean:
+                    WriteValue((bool)value);
+                    return;
+
+                case TypeCode.SByte:
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.UInt16:
+                case TypeCode.Int32:
+                case TypeCode.UInt32:
+                case TypeCode.Int64:
+                case TypeCode.UInt64:
+                    if (type.IsEnum)
+                    {
+                        WriteEnumValue(value, typeCode);
+                        return;
+                    }
+                    stringBuffer.Append(value.ToString());
+                    return;
+
+                case TypeCode.Single:
+                    WriteValue((float)value);
+                    return;
+                case TypeCode.Double:
+                    WriteValue((double)value);
+                    return;
+                case TypeCode.DateTime:
+                    WriteValue(((DateTime)value).ToString(JsonValue.DateTimeFormat, CultureInfo.InvariantCulture));
+                    return;
+            }
+
+            bool written = false;
+            if (value is IDictionary dictionary)
+            {
+                // Dictionaries/objects
+                stringBuffer.Append('{');
+                foreach (DictionaryEntry entry in dictionary)
+                {
+                    if (written) stringBuffer.Append(',');
+                    written = true;
+                    if (!(entry.Key is string key))
+                    {
+                        throw new InvalidCastException($"Dictionary key type has to be string");
+                    }
+                    WriteValue(entry.Key as string);
+                    stringBuffer.Append(':');
+                    WriteRecursive(entry.Value, level);
+                }
+                stringBuffer.Append('}');
+                return;
+            }
+            else if (value is IEnumerable list)
+            {
+                // Arrays
+                stringBuffer.Append('[');
+                foreach (object entry in list)
+                {
+                    if (written) stringBuffer.Append(',');
+                    written = true;
+                    WriteRecursive(entry, level);
+                }
+                stringBuffer.Append(']');
+                return;
+            }
+            else
+            {
+                // Structs/classes
+                stringBuffer.Append('{');
+                foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
+                {
+                    if (written) stringBuffer.Append(',');
+                    written = true;
+                    WriteValue(field.Name);
+                    stringBuffer.Append(':');
+                    WriteRecursive(field.GetValue(value), level);
+                }
+                if (IsAnonymousType(type))
+                {
+                    // Read properties (anonymous types only)
+                    foreach (PropertyInfo property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+                    {
+                        if (!property.CanRead) continue;
+                        if (written) stringBuffer.Append(',');
+                        written = true;
+                        WriteValue(property.Name);
+                        stringBuffer.Append(':');
+                        WriteRecursive(property.GetValue(value), level);
+                    }
+                }
+                stringBuffer.Append('}');
+                return;
+            }
+
+            throw new FormatException($"Failed to serialize field type '{type}'");
+        }
+
+        private static bool IsAnonymousType(Type type)
+        {
+            return type.GetCustomAttributes(typeof(CompilerGeneratedAttribute), false).Length > 0 && type.FullName.Contains(AnonymousTypeName);
+        }
+
+        private bool WriteValue(char value)
+        {
+            // Escape unsupported control characters (as per JSON standard)
+            switch (value)
+            {
+                case '\t':
+                    stringBuffer.Append('\\');
+                    stringBuffer.Append('t');
+                    return true;
+                case '\n':
+                    stringBuffer.Append('\\');
+                    stringBuffer.Append('n');
+                    return true;
+                case '\r':
+                    stringBuffer.Append('\\');
+                    stringBuffer.Append('r');
+                    return true;
+                case '\f':
+                    stringBuffer.Append('\\');
+                    stringBuffer.Append('f');
+                    return true;
+                case '\b':
+                    stringBuffer.Append('\\');
+                    stringBuffer.Append('b');
+                    return true;
+                case '"':
+                    stringBuffer.Append('\\');
+                    stringBuffer.Append('\"');
+                    return true;
+                case '\\':
+                    stringBuffer.Append('\\');
+                    stringBuffer.Append('\\');
+                    return true;
+            }
+
+            // Anything above 1f (space and onwards) can be represented as character,
+            // the output string will be converted to utf8 at save time
+            if (value >= '\u001f')
+            {
+                stringBuffer.Append(value);
+                return true;
+            }
+
+            return false;
+        }
+        private void WriteValue(string value)
+        {
+            stringBuffer.Append('"');
+            foreach (char c in value)
+            {
+                if (!WriteValue(c))
+                {
+                    // Handle unsupported characters
+                    stringBuffer.Append(UnicodePrefix);
+                    int num = c;
+                    stringBuffer.Append((char)(48 + (num >> 4)));
+                    num &= 0xF;
+                    stringBuffer.Append((char)((num < 10) ? (48 + num) : (97 + (num - 10))));
+                }
+            }
+            stringBuffer.Append('"');
+        }
+        private void WriteValue(bool value)
+        {
+            stringBuffer.Append(value ? JsonValue.TrueConstant : JsonValue.FalseConstant);
+        }
+        private void WriteValue(float value)
+        {
+            stringBuffer.Append(value.ToString(JsonValue.DoubleFormat, CultureInfo.InvariantCulture));
+        }
+        private void WriteValue(double value)
+        {
+            stringBuffer.Append(value.ToString(JsonValue.DoubleFormat, CultureInfo.InvariantCulture));
+        }
+
+        private void WriteEnumValue(object value, TypeCode typeCode)
+        {
+            switch (typeCode)
+            {
+                case TypeCode.SByte:
+                    stringBuffer.Append((sbyte)value);
+                    break;
+                case TypeCode.Int16:
+                    stringBuffer.Append((short)value);
+                    break;
+                case TypeCode.UInt16:
+                    stringBuffer.Append((ushort)value);
+                    break;
+                case TypeCode.Int32:
+                    stringBuffer.Append((int)value);
+                    break;
+                case TypeCode.Byte:
+                    stringBuffer.Append((byte)value);
+                    break;
+                case TypeCode.UInt32:
+                    stringBuffer.Append((uint)value);
+                    break;
+                case TypeCode.Int64:
+                    stringBuffer.Append((long)value);
+                    break;
+                case TypeCode.UInt64:
+                    stringBuffer.Append((ulong)value);
+                    break;
+                default:
+                    throw new InvalidOperationException($"Invalid type code for enum: '{typeCode}'");
+            }
         }
     }
 }
