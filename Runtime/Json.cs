@@ -388,6 +388,12 @@ namespace AggroBird.Json
                 return null;
             }
 
+            // Check for enum strings
+            if (targetType.IsEnum && jsonValue.TryGetValue(out string enumValue))
+            {
+                return Enum.Parse(targetType, enumValue);
+            }
+
             TypeCode typeCode = Type.GetTypeCode(targetType);
             switch (typeCode)
             {
@@ -1094,7 +1100,17 @@ namespace AggroBird.Json
                 case TypeCode.UInt64:
                     if (type.IsEnum)
                     {
-                        WriteEnumValue(value, typeCode);
+                        string str = value.ToString();
+                        if (Enum.IsDefined(type, str))
+                        {
+                            // Enum is representable as string
+                            WriteValue(str);
+                        }
+                        else
+                        {
+                            // Enum is not representable as string
+                            stringBuffer.Append(str);
+                        }
                         return;
                     }
                     stringBuffer.Append(value.ToString());
