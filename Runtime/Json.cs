@@ -37,6 +37,16 @@ namespace AggroBird.Json
         }
     }
 
+    public abstract class JsonDeserializer
+    {
+        public abstract object Deserialize(JsonValue value);
+    }
+
+    public abstract class JsonSerializer
+    {
+        public abstract string Serialize(object obj);
+    }
+
     public struct JsonValue
     {
         // Constructors
@@ -370,22 +380,28 @@ namespace AggroBird.Json
             return new JsonReader().FromJson(str);
         }
 
-        public static object FromJson(string str, Type targetType)
+        public static object FromJson(string str, Type targetType, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null)
         {
-            return FromJson(FromJson(str), targetType);
+            return FromJson(FromJson(str), targetType, deserializers);
         }
-        public static T FromJson<T>(string str)
+        public static T FromJson<T>(string str, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null)
         {
-            return (T)FromJson(FromJson(str), typeof(T));
+            return (T)FromJson(FromJson(str), typeof(T), deserializers);
         }
 
-        public static object FromJson(JsonValue jsonValue, Type targetType)
+        public static object FromJson(JsonValue jsonValue, Type targetType, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null)
         {
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
 
             if (jsonValue.isNull)
             {
                 return null;
+            }
+
+            // Check for custom deserializers
+            if (deserializers != null && deserializers.TryGetValue(targetType, out JsonDeserializer deserializer) && deserializer != null)
+            {
+                return deserializer.Deserialize(jsonValue);
             }
 
             // Check for enum strings
@@ -460,7 +476,7 @@ namespace AggroBird.Json
                 Array array = Array.CreateInstance(elementType, jsonArray.Count);
                 for (int i = 0; i < jsonArray.Count; i++)
                 {
-                    array.SetValue(FromJson(jsonArray[i], elementType), i);
+                    array.SetValue(FromJson(jsonArray[i], elementType, deserializers), i);
                 }
                 return array;
             }
@@ -476,7 +492,7 @@ namespace AggroBird.Json
                 Type valueType = arguments[0];
                 for (int i = 0; i < jsonArray.Count; i++)
                 {
-                    list.Add(FromJson(jsonArray[i], valueType));
+                    list.Add(FromJson(jsonArray[i], valueType, deserializers));
                 }
                 return list;
             }
@@ -496,7 +512,7 @@ namespace AggroBird.Json
                 Type valueType = arguments[1];
                 foreach (var kv in jsonObject)
                 {
-                    dictionary.Add(kv.Key, FromJson(kv.Value, valueType));
+                    dictionary.Add(kv.Key, FromJson(kv.Value, valueType, deserializers));
                 }
                 return dictionary;
             }
@@ -511,21 +527,22 @@ namespace AggroBird.Json
                     {
                         throw new MissingFieldException($"Failed to find field '{kv.Key}' in type '{targetType}'");
                     }
-                    field.SetValue(obj, FromJson(kv.Value, field.FieldType));
+                    field.SetValue(obj, FromJson(kv.Value, field.FieldType, deserializers));
                 }
                 return obj;
             }
 
             throw new InvalidCastException($"Invalid Json cast: '{jsonValue.internalObjectTypeName}' to '{targetType}'");
         }
-        public static T FromJson<T>(JsonValue jsonObject)
+        public static T FromJson<T>(JsonValue jsonObject, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null)
         {
-            return (T)FromJson(jsonObject, typeof(T));
+            return (T)FromJson(jsonObject, typeof(T), deserializers);
         }
 
-        public static string ToJson(object value)
+        public static string ToJson(object value, IReadOnlyDictionary<Type, JsonSerializer> serializers = null)
         {
-            return new JsonWriter().ToJson(value);
+            JsonWriter writer = new JsonWriter { serializers = serializers };
+            return writer.ToJson(value);
         }
     }
 
@@ -562,6 +579,8 @@ namespace AggroBird.Json
         public StringBuilder stringBuffer = null;
         // Allow trailing and inline comments (not part of the JSON specifications)
         public bool allowComments = false;
+        // Custom deserializers for specific object types
+        public IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null;
 
         private unsafe char* ptr = null;
         private unsafe char* end = null;
@@ -1021,11 +1040,11 @@ namespace AggroBird.Json
         public object FromJson(string str, Type targetType)
         {
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-            return JsonValue.FromJson(FromJson(str), targetType);
+            return JsonValue.FromJson(FromJson(str), targetType, deserializers);
         }
         public T FromJson<T>(string str)
         {
-            return (T)JsonValue.FromJson(FromJson(str), typeof(T));
+            return (T)JsonValue.FromJson(FromJson(str), typeof(T), deserializers);
         }
     }
 
@@ -1038,9 +1057,17 @@ namespace AggroBird.Json
         public int maxRecursion = JsonValue.WriteMaxRecursion;
         // Stringbuffer used to build the output (will be reused if left unchanged)
         public StringBuilder stringBuffer = null;
+        // Custom serializers for specific object types
+        public IReadOnlyDictionary<Type, JsonSerializer> serializers = null;
 
         public string ToJson(object value)
         {
+            // Check for custom serializers
+            if (serializers != null && serializers.TryGetValue(value.GetType(), out JsonSerializer serializer) && serializer != null)
+            {
+                return serializer.Serialize(value);
+            }
+
             if (stringBuffer == null)
             {
                 stringBuffer = new StringBuilder(JsonValue.OutputBufferCapacity);
