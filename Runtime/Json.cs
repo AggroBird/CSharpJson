@@ -399,7 +399,7 @@ namespace AggroBird.Json
             }
 
             // Check for custom deserializers
-            if (deserializers != null && deserializers.TryGetValue(targetType, out JsonDeserializer deserializer) && deserializer != null)
+            if (deserializers != null && deserializers.TryGetValue(targetType, out JsonDeserializer deserializer))
             {
                 return deserializer.Deserialize(jsonValue);
             }
@@ -1062,8 +1062,14 @@ namespace AggroBird.Json
 
         public string ToJson(object value)
         {
+            // Catch null early
+            if (value == null)
+            {
+                return JsonValue.NullConstant;
+            }
+
             // Check for custom serializers
-            if (serializers != null && serializers.TryGetValue(value.GetType(), out JsonSerializer serializer) && serializer != null)
+            if (serializers != null && serializers.TryGetValue(value.GetType(), out JsonSerializer serializer))
             {
                 return serializer.Serialize(value);
             }
