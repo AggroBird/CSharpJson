@@ -49,6 +49,192 @@ namespace AggroBird.Json
         public abstract string Serialize(object obj);
     }
 
+    internal struct DefaultJsonDeserializer
+    {
+        public DefaultJsonDeserializer(IReadOnlyDictionary<Type, JsonDeserializer> deserializers, IReadOnlyList<Type> fieldAttributes)
+        {
+            if (fieldAttributes != null)
+            {
+                foreach (var attr in fieldAttributes)
+                {
+                    if (attr == null) throw new NullReferenceException();
+                    if (!attr.IsSubclassOf(typeof(Attribute))) throw new ArgumentException($"Type {attr} is not an attribute");
+                }
+            }
+            this.fieldAttributes = fieldAttributes;
+            useFieldAttributes = fieldAttributes != null && fieldAttributes.Count > 0;
+
+            bindingFlags = BindingFlags.Public | BindingFlags.Instance;
+            if (useFieldAttributes)
+                bindingFlags |= BindingFlags.NonPublic;
+            else
+                bindingFlags &= ~BindingFlags.NonPublic;
+
+            if (deserializers != null)
+            {
+                foreach (var pair in deserializers)
+                {
+                    if (pair.Key == null || pair.Value == null) throw new NullReferenceException();
+                }
+            }
+            this.deserializers = deserializers;
+            useCustomDeserializers = deserializers != null && deserializers.Count > 0;
+        }
+
+        private IReadOnlyDictionary<Type, JsonDeserializer> deserializers;
+        private bool useCustomDeserializers;
+
+        private IReadOnlyList<Type> fieldAttributes;
+        private bool useFieldAttributes;
+        private BindingFlags bindingFlags;
+
+        public object Deserialize(JsonValue jsonValue, Type targetType)
+        {
+            if (targetType == null) throw new ArgumentNullException(nameof(targetType));
+
+            if (jsonValue.isNull)
+            {
+                return null;
+            }
+
+            // Check for custom deserializers
+            if (useCustomDeserializers && deserializers.TryGetValue(targetType, out JsonDeserializer deserializer))
+            {
+                return deserializer.Deserialize(jsonValue);
+            }
+
+            // Check for enum strings
+            if (targetType.IsEnum && jsonValue.TryGetValue(out string enumValue))
+            {
+                return Enum.Parse(targetType, enumValue);
+            }
+
+            TypeCode typeCode = Type.GetTypeCode(targetType);
+            switch (typeCode)
+            {
+                case TypeCode.String:
+                case TypeCode.Char:
+                {
+                    string str = (string)jsonValue;
+                    if (typeCode == TypeCode.Char)
+                    {
+                        if (str.Length == 1)
+                        {
+                            return str[0];
+                        }
+                        throw new InvalidCastException("Attempted to convert a multi-character string to a singular character");
+                    }
+                    return str;
+                }
+
+                case TypeCode.Boolean:
+                    return (bool)jsonValue;
+
+                case TypeCode.SByte:
+                    return (sbyte)(int)jsonValue;
+                case TypeCode.Byte:
+                    return (byte)(int)jsonValue;
+                case TypeCode.Int16:
+                    return (short)(int)jsonValue;
+                case TypeCode.UInt16:
+                    return (ushort)(int)jsonValue;
+                case TypeCode.Int32:
+                    return (int)jsonValue;
+                case TypeCode.UInt32:
+                    return (uint)jsonValue;
+                case TypeCode.Int64:
+                    return (long)jsonValue;
+                case TypeCode.UInt64:
+                    return (ulong)jsonValue;
+
+                case TypeCode.Single:
+                    return (float)jsonValue;
+                case TypeCode.Double:
+                    return (double)jsonValue;
+
+                case TypeCode.DateTime:
+                    return DateTime.Parse((string)jsonValue, CultureInfo.InvariantCulture);
+            }
+
+            if (targetType == typeof(JsonValue))
+            {
+                return jsonValue;
+            }
+            else if (targetType == typeof(JsonArray))
+            {
+                return (JsonArray)jsonValue;
+            }
+            else if (targetType == typeof(JsonObject))
+            {
+                return (JsonObject)jsonValue;
+            }
+            else if (targetType.IsArray)
+            {
+                JsonArray jsonArray = (JsonArray)jsonValue;
+                Type elementType = targetType.GetElementType();
+                Array array = Array.CreateInstance(elementType, jsonArray.Count);
+                for (int i = 0; i < jsonArray.Count; i++)
+                {
+                    array.SetValue(Deserialize(jsonArray[i], elementType), i);
+                }
+                return array;
+            }
+            else if (typeof(IList).IsAssignableFrom(targetType))
+            {
+                JsonArray jsonArray = (JsonArray)jsonValue;
+                Type[] arguments = targetType.GetGenericArguments();
+                if (arguments.Length == 0)
+                {
+                    throw new InvalidCastException($"Unable to derive generic types for collection '{targetType}'");
+                }
+                IList list = Activator.CreateInstance(targetType) as IList;
+                Type valueType = arguments[0];
+                for (int i = 0; i < jsonArray.Count; i++)
+                {
+                    list.Add(Deserialize(jsonArray[i], valueType));
+                }
+                return list;
+            }
+            else if (typeof(IDictionary).IsAssignableFrom(targetType))
+            {
+                JsonObject jsonObject = (JsonObject)jsonValue;
+                Type[] arguments = targetType.GetGenericArguments();
+                if (arguments.Length < 2)
+                {
+                    throw new InvalidCastException($"Unable to derive generic types for dictionary '{targetType}'");
+                }
+                if (arguments[0] != typeof(string))
+                {
+                    throw new InvalidCastException($"Dictionary key type has to be string");
+                }
+                IDictionary dictionary = Activator.CreateInstance(targetType) as IDictionary;
+                Type valueType = arguments[1];
+                foreach (var kv in jsonObject)
+                {
+                    dictionary.Add(kv.Key, Deserialize(kv.Value, valueType));
+                }
+                return dictionary;
+            }
+            else
+            {
+                JsonObject jsonObject = (JsonObject)jsonValue;
+                object obj = Activator.CreateInstance(targetType);
+                foreach (var kv in jsonObject)
+                {
+                    FieldInfo fieldInfo = targetType.GetField(kv.Key, bindingFlags);
+                    if (fieldInfo == null || (!fieldInfo.IsPublic && (!useFieldAttributes || !JsonValue.HasFieldAttribute(fieldInfo, fieldAttributes))))
+                    {
+                        throw new MissingFieldException($"Failed to find field '{kv.Key}' in type '{targetType}'");
+                    }
+                    fieldInfo.SetValue(obj, Deserialize(kv.Value, fieldInfo.FieldType));
+                }
+                return obj;
+            }
+
+            throw new InvalidCastException($"Invalid Json cast: '{jsonValue.internalObjectTypeName}' to '{targetType}'");
+        }
+    }
+
     public struct JsonValue
     {
         // Constructors
@@ -386,192 +572,6 @@ namespace AggroBird.Json
                 }
             }
             return false;
-        }
-
-        private struct DefaultJsonDeserializer
-        {
-            public DefaultJsonDeserializer(IReadOnlyDictionary<Type, JsonDeserializer> deserializers, IReadOnlyList<Type> fieldAttributes)
-            {
-                if (fieldAttributes != null)
-                {
-                    foreach (var attr in fieldAttributes)
-                    {
-                        if (attr == null) throw new NullReferenceException();
-                        if (!attr.IsSubclassOf(typeof(Attribute))) throw new ArgumentException($"Type {attr} is not an attribute");
-                    }
-                }
-                this.fieldAttributes = fieldAttributes;
-                useFieldAttributes = fieldAttributes != null && fieldAttributes.Count > 0;
-
-                bindingFlags = BindingFlags.Public | BindingFlags.Instance;
-                if (useFieldAttributes)
-                    bindingFlags |= BindingFlags.NonPublic;
-                else
-                    bindingFlags &= ~BindingFlags.NonPublic;
-
-                if (deserializers != null)
-                {
-                    foreach (var pair in deserializers)
-                    {
-                        if (pair.Key == null || pair.Value == null) throw new NullReferenceException();
-                    }
-                }
-                this.deserializers = deserializers;
-                useCustomDeserializers = deserializers != null && deserializers.Count > 0;
-            }
-
-            private IReadOnlyDictionary<Type, JsonDeserializer> deserializers;
-            private bool useCustomDeserializers;
-
-            private IReadOnlyList<Type> fieldAttributes;
-            private bool useFieldAttributes;
-            private BindingFlags bindingFlags;
-
-            public object Deserialize(JsonValue jsonValue, Type targetType)
-            {
-                if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-
-                if (jsonValue.isNull)
-                {
-                    return null;
-                }
-
-                // Check for custom deserializers
-                if (useCustomDeserializers && deserializers.TryGetValue(targetType, out JsonDeserializer deserializer))
-                {
-                    return deserializer.Deserialize(jsonValue);
-                }
-
-                // Check for enum strings
-                if (targetType.IsEnum && jsonValue.TryGetValue(out string enumValue))
-                {
-                    return Enum.Parse(targetType, enumValue);
-                }
-
-                TypeCode typeCode = Type.GetTypeCode(targetType);
-                switch (typeCode)
-                {
-                    case TypeCode.String:
-                    case TypeCode.Char:
-                    {
-                        string str = (string)jsonValue;
-                        if (typeCode == TypeCode.Char)
-                        {
-                            if (str.Length == 1)
-                            {
-                                return str[0];
-                            }
-                            throw new InvalidCastException("Attempted to convert a multi-character string to a singular character");
-                        }
-                        return str;
-                    }
-
-                    case TypeCode.Boolean:
-                        return (bool)jsonValue;
-
-                    case TypeCode.SByte:
-                        return (sbyte)(int)jsonValue;
-                    case TypeCode.Byte:
-                        return (byte)(int)jsonValue;
-                    case TypeCode.Int16:
-                        return (short)(int)jsonValue;
-                    case TypeCode.UInt16:
-                        return (ushort)(int)jsonValue;
-                    case TypeCode.Int32:
-                        return (int)jsonValue;
-                    case TypeCode.UInt32:
-                        return (uint)jsonValue;
-                    case TypeCode.Int64:
-                        return (long)jsonValue;
-                    case TypeCode.UInt64:
-                        return (ulong)jsonValue;
-
-                    case TypeCode.Single:
-                        return (float)jsonValue;
-                    case TypeCode.Double:
-                        return (double)jsonValue;
-
-                    case TypeCode.DateTime:
-                        return DateTime.Parse((string)jsonValue, CultureInfo.InvariantCulture);
-                }
-
-                if (targetType == typeof(JsonValue))
-                {
-                    return jsonValue;
-                }
-                else if (targetType == typeof(JsonArray))
-                {
-                    return (JsonArray)jsonValue;
-                }
-                else if (targetType == typeof(JsonObject))
-                {
-                    return (JsonObject)jsonValue;
-                }
-                else if (targetType.IsArray)
-                {
-                    JsonArray jsonArray = (JsonArray)jsonValue;
-                    Type elementType = targetType.GetElementType();
-                    Array array = Array.CreateInstance(elementType, jsonArray.Count);
-                    for (int i = 0; i < jsonArray.Count; i++)
-                    {
-                        array.SetValue(Deserialize(jsonArray[i], elementType), i);
-                    }
-                    return array;
-                }
-                else if (typeof(IList).IsAssignableFrom(targetType))
-                {
-                    JsonArray jsonArray = (JsonArray)jsonValue;
-                    Type[] arguments = targetType.GetGenericArguments();
-                    if (arguments.Length == 0)
-                    {
-                        throw new InvalidCastException($"Unable to derive generic types for collection '{targetType}'");
-                    }
-                    IList list = Activator.CreateInstance(targetType) as IList;
-                    Type valueType = arguments[0];
-                    for (int i = 0; i < jsonArray.Count; i++)
-                    {
-                        list.Add(Deserialize(jsonArray[i], valueType));
-                    }
-                    return list;
-                }
-                else if (typeof(IDictionary).IsAssignableFrom(targetType))
-                {
-                    JsonObject jsonObject = (JsonObject)jsonValue;
-                    Type[] arguments = targetType.GetGenericArguments();
-                    if (arguments.Length < 2)
-                    {
-                        throw new InvalidCastException($"Unable to derive generic types for dictionary '{targetType}'");
-                    }
-                    if (arguments[0] != typeof(string))
-                    {
-                        throw new InvalidCastException($"Dictionary key type has to be string");
-                    }
-                    IDictionary dictionary = Activator.CreateInstance(targetType) as IDictionary;
-                    Type valueType = arguments[1];
-                    foreach (var kv in jsonObject)
-                    {
-                        dictionary.Add(kv.Key, Deserialize(kv.Value, valueType));
-                    }
-                    return dictionary;
-                }
-                else
-                {
-                    JsonObject jsonObject = (JsonObject)jsonValue;
-                    object obj = Activator.CreateInstance(targetType);
-                    foreach (var kv in jsonObject)
-                    {
-                        FieldInfo fieldInfo = targetType.GetField(kv.Key, bindingFlags);
-                        if (fieldInfo == null || (!fieldInfo.IsPublic && (!useFieldAttributes || !HasFieldAttribute(fieldInfo, fieldAttributes))))
-                        {
-                            throw new MissingFieldException($"Failed to find field '{kv.Key}' in type '{targetType}'");
-                        }
-                        fieldInfo.SetValue(obj, Deserialize(kv.Value, fieldInfo.FieldType));
-                    }
-                    return obj;
-                }
-
-                throw new InvalidCastException($"Invalid Json cast: '{jsonValue.internalObjectTypeName}' to '{targetType}'");
-            }
         }
 
 
@@ -1102,11 +1102,11 @@ namespace AggroBird.Json
         public object FromJson(string str, Type targetType)
         {
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-            return JsonValue.FromJson(FromJson(str), targetType, deserializers);
+            return new DefaultJsonDeserializer(deserializers, fieldAttributes).Deserialize(FromJson(str), targetType);
         }
         public T FromJson<T>(string str)
         {
-            return (T)JsonValue.FromJson(FromJson(str), typeof(T), deserializers);
+            return (T)new DefaultJsonDeserializer(deserializers, fieldAttributes).Deserialize(FromJson(str), typeof(T));
         }
     }
 
