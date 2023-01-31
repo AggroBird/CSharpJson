@@ -392,9 +392,12 @@ namespace AggroBird.Json
         {
             public DefaultJsonDeserializer(IReadOnlyDictionary<Type, JsonDeserializer> deserializers, IReadOnlyList<Attribute> fieldAttributes)
             {
-                foreach (var attr in fieldAttributes)
+                if (fieldAttributes != null)
                 {
-                    if (attr == null) throw new NullReferenceException();
+                    foreach (var attr in fieldAttributes)
+                    {
+                        if (attr == null) throw new NullReferenceException();
+                    }
                 }
                 this.fieldAttributes = fieldAttributes;
                 useFieldAttributes = fieldAttributes != null && fieldAttributes.Count > 0;
@@ -405,9 +408,12 @@ namespace AggroBird.Json
                 else
                     bindingFlags &= ~BindingFlags.NonPublic;
 
-                foreach (var pair in deserializers)
+                if (deserializers != null)
                 {
-                    if (pair.Key == null || pair.Value == null) throw new NullReferenceException();
+                    foreach (var pair in deserializers)
+                    {
+                        if (pair.Key == null || pair.Value == null) throw new NullReferenceException();
+                    }
                 }
                 this.deserializers = deserializers;
                 useCustomDeserializers = deserializers != null && deserializers.Count > 0;
