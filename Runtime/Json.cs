@@ -376,11 +376,11 @@ namespace AggroBird.Json
             return obj;
         }
 
-        internal static bool HasFieldAttribute(FieldInfo fieldInfo, IReadOnlyList<Attribute> fieldAttributes)
+        internal static bool HasFieldAttribute(FieldInfo fieldInfo, IReadOnlyList<Type> fieldAttributes)
         {
             foreach (var fieldAttribute in fieldAttributes)
             {
-                if (fieldAttribute != null && fieldInfo.GetCustomAttribute(fieldAttribute.GetType()) != null)
+                if (fieldInfo.GetCustomAttribute(fieldAttribute) != null)
                 {
                     return true;
                 }
@@ -390,13 +390,14 @@ namespace AggroBird.Json
 
         private struct DefaultJsonDeserializer
         {
-            public DefaultJsonDeserializer(IReadOnlyDictionary<Type, JsonDeserializer> deserializers, IReadOnlyList<Attribute> fieldAttributes)
+            public DefaultJsonDeserializer(IReadOnlyDictionary<Type, JsonDeserializer> deserializers, IReadOnlyList<Type> fieldAttributes)
             {
                 if (fieldAttributes != null)
                 {
                     foreach (var attr in fieldAttributes)
                     {
                         if (attr == null) throw new NullReferenceException();
+                        if (!attr.IsSubclassOf(typeof(Attribute))) throw new ArgumentException($"Type {attr} is not an attribute");
                     }
                 }
                 this.fieldAttributes = fieldAttributes;
@@ -422,7 +423,7 @@ namespace AggroBird.Json
             private IReadOnlyDictionary<Type, JsonDeserializer> deserializers;
             private bool useCustomDeserializers;
 
-            private IReadOnlyList<Attribute> fieldAttributes;
+            private IReadOnlyList<Type> fieldAttributes;
             private bool useFieldAttributes;
             private BindingFlags bindingFlags;
 
@@ -574,20 +575,20 @@ namespace AggroBird.Json
         }
 
 
-        public static object FromJson(JsonValue jsonValue, Type targetType, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Attribute> fieldAttributes = null)
+        public static object FromJson(JsonValue jsonValue, Type targetType, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Type> fieldAttributes = null)
         {
             return new DefaultJsonDeserializer(deserializers, fieldAttributes).Deserialize(jsonValue, targetType);
         }
-        public static T FromJson<T>(JsonValue jsonObject, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Attribute> fieldAttributes = null)
+        public static T FromJson<T>(JsonValue jsonObject, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Type> fieldAttributes = null)
         {
             return (T)FromJson(jsonObject, typeof(T), deserializers: deserializers, fieldAttributes: fieldAttributes);
         }
 
-        public static object FromJson(string str, Type targetType, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Attribute> fieldAttributes = null)
+        public static object FromJson(string str, Type targetType, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Type> fieldAttributes = null)
         {
             return FromJson(FromJson(str), targetType, deserializers: deserializers, fieldAttributes: fieldAttributes);
         }
-        public static T FromJson<T>(string str, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Attribute> fieldAttributes = null)
+        public static T FromJson<T>(string str, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Type> fieldAttributes = null)
         {
             return (T)FromJson(FromJson(str), typeof(T), deserializers: deserializers, fieldAttributes: fieldAttributes);
         }
@@ -598,7 +599,7 @@ namespace AggroBird.Json
         }
 
 
-        public static string ToJson(object value, IReadOnlyDictionary<Type, JsonSerializer> serializers = null, IReadOnlyList<Attribute> fieldAttributes = null)
+        public static string ToJson(object value, IReadOnlyDictionary<Type, JsonSerializer> serializers = null, IReadOnlyList<Type> fieldAttributes = null)
         {
             JsonWriter writer = new JsonWriter { Serializers = serializers, FieldAttributes = fieldAttributes };
             return writer.ToJson(value);
@@ -641,7 +642,7 @@ namespace AggroBird.Json
         // Custom deserializers for specific object types
         public IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null;
         // Custom attributes that allow private fields to be read
-        public IReadOnlyList<Attribute> fieldAttributes = null;
+        public IReadOnlyList<Type> fieldAttributes = null;
 
         private unsafe char* ptr = null;
         private unsafe char* end = null;
@@ -1137,7 +1138,7 @@ namespace AggroBird.Json
             }
         }
         // Custom attributes that allow private fields to be written
-        public IReadOnlyList<Attribute> FieldAttributes
+        public IReadOnlyList<Type> FieldAttributes
         {
             get => fieldAttributes;
             set
@@ -1147,6 +1148,7 @@ namespace AggroBird.Json
                     foreach (var attr in value)
                     {
                         if (attr == null) throw new NullReferenceException();
+                        if (!attr.IsSubclassOf(typeof(Attribute))) throw new ArgumentException($"Type {attr} is not an attribute");
                     }
                 }
                 fieldAttributes = value;
@@ -1162,7 +1164,7 @@ namespace AggroBird.Json
         private IReadOnlyDictionary<Type, JsonSerializer> serializers = null;
         private bool useCustomSerializers = false;
 
-        private IReadOnlyList<Attribute> fieldAttributes = null;
+        private IReadOnlyList<Type> fieldAttributes = null;
         private bool useFieldAttributes = false;
         private BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Instance;
 
