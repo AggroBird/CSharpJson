@@ -557,35 +557,35 @@ namespace AggroBird.Json
         }
         public static explicit operator string(JsonValue value)
         {
-            if (!(value.obj is string val))
+            if (value.obj is string val)
             {
-                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(string)}'");
+                return val;
             }
-            return val;
+            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(string)}'");
         }
         public static explicit operator bool(JsonValue value)
         {
-            if (!(value.obj is bool val))
+            if (value.obj is bool val)
             {
-                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(bool)}'");
+                return val;
             }
-            return val;
+            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(bool)}'");
         }
         public static explicit operator JsonArray(JsonValue value)
         {
-            if (!(value.obj is JsonArray val))
+            if (value.obj is JsonArray val)
             {
-                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(JsonArray)}'");
+                return val;
             }
-            return val;
+            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(JsonArray)}'");
         }
         public static explicit operator JsonObject(JsonValue value)
         {
-            if (!(value.obj is JsonObject val))
+            if (value.obj is JsonObject val)
             {
-                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(JsonObject)}'");
+                return val;
             }
-            return val;
+            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(JsonObject)}'");
         }
 
         // Implicit assignment operators
