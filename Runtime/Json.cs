@@ -433,51 +433,127 @@ namespace AggroBird.Json
         // Explicit cast operators (will throw on invalid cast)
         public static explicit operator int(JsonValue value)
         {
-            if (!(value.obj is double val))
+            switch (value.obj)
             {
-                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(int)}'");
+                case long l:
+                {
+                    if (l >= int.MinValue && l <= int.MaxValue) return (int)l;
+                    throw new OverflowException($"Value was either too large or too small for a {typeof(int)}.");
+                }
+                case ulong ul:
+                {
+                    if (ul <= int.MaxValue) return (int)ul;
+                    throw new OverflowException($"Value was either too large or too small for a {typeof(int)}.");
+                }
+                case double d:
+                {
+                    if (d >= int.MinValue && d <= int.MaxValue) return (int)d;
+                    throw new OverflowException($"Value was either too large or too small for a {typeof(int)}.");
+                }
             }
-            return Convert.ToInt32(val);
+            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(int)}'");
         }
         public static explicit operator uint(JsonValue value)
         {
-            if (!(value.obj is double val))
+            switch (value.obj)
             {
-                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(uint)}'");
+                case long l:
+                {
+                    if (l >= uint.MinValue && l <= uint.MaxValue) return (uint)l;
+                    throw new OverflowException($"Value was either too large or too small for a {typeof(uint)}.");
+                }
+                case ulong ul:
+                {
+                    if (ul <= uint.MaxValue) return (uint)ul;
+                    throw new OverflowException($"Value was either too large or too small for a {typeof(uint)}.");
+                }
+                case double d:
+                {
+                    if (d >= uint.MinValue && d <= uint.MaxValue) return (uint)d;
+                    throw new OverflowException($"Value was either too large or too small for a {typeof(uint)}.");
+                }
             }
-            return Convert.ToUInt32(val);
+            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(uint)}'");
         }
         public static explicit operator long(JsonValue value)
         {
-            if (!(value.obj is double val))
+            switch (value.obj)
             {
-                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(long)}'");
+                case long l:
+                {
+                    return l;
+                }
+                case ulong ul:
+                {
+                    if (ul <= long.MaxValue) return (long)ul;
+                    throw new OverflowException($"Value was either too large or too small for a {typeof(long)}.");
+                }
+                case double d:
+                {
+                    if (d >= long.MinValue && d <= long.MaxValue) return (long)d;
+                    throw new OverflowException($"Value was either too large or too small for a {typeof(long)}.");
+                }
             }
-            return Convert.ToInt64(val);
+            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(long)}'");
         }
         public static explicit operator ulong(JsonValue value)
         {
-            if (!(value.obj is double val))
+            switch (value.obj)
             {
-                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(ulong)}'");
+                case long l:
+                {
+                    if (l >= 0) return (ulong)l;
+                    throw new OverflowException($"Value was either too large or too small for a {typeof(ulong)}.");
+                }
+                case ulong ul:
+                {
+                    return ul;
+                }
+                case double d:
+                {
+                    if (d >= ulong.MinValue && d <= ulong.MaxValue) return (ulong)d;
+                    throw new OverflowException($"Value was either too large or too small for a {typeof(ulong)}.");
+                }
             }
-            return Convert.ToUInt64(val);
+            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(ulong)}'");
         }
         public static explicit operator float(JsonValue value)
         {
-            if (!(value.obj is double val))
+            switch (value.obj)
             {
-                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(float)}'");
+                case long l:
+                {
+                    return l;
+                }
+                case ulong ul:
+                {
+                    return ul;
+                }
+                case double d:
+                {
+                    return (float)d;
+                }
             }
-            return Convert.ToSingle(val);
+            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(float)}'");
         }
         public static explicit operator double(JsonValue value)
         {
-            if (!(value.obj is double val))
+            switch (value.obj)
             {
-                throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(double)}'");
+                case long l:
+                {
+                    return l;
+                }
+                case ulong ul:
+                {
+                    return ul;
+                }
+                case double d:
+                {
+                    return d;
+                }
             }
-            return val;
+            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(double)}'");
         }
         public static explicit operator string(JsonValue value)
         {
@@ -868,7 +944,17 @@ namespace AggroBird.Json
                                 string subStr = new string(beg, 0, (int)len);
                                 if (char.IsDigit(subStr[0]) || subStr[0] == '-')
                                 {
-                                    if (double.TryParse(subStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+                                    if (long.TryParse(subStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out long l))
+                                    {
+                                        val = l;
+                                        return TokenType.Value;
+                                    }
+                                    else if (ulong.TryParse(subStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong ul))
+                                    {
+                                        val = ul;
+                                        return TokenType.Value;
+                                    }
+                                    else if (double.TryParse(subStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
                                     {
                                         val = d;
                                         return TokenType.Value;
