@@ -92,7 +92,7 @@ namespace AggroBird.Json
         {
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
 
-            if (jsonValue.isNull)
+            if (jsonValue.IsNull)
             {
                 return null;
             }
@@ -231,72 +231,82 @@ namespace AggroBird.Json
                 return obj;
             }
 
-            throw new InvalidCastException($"Invalid Json cast: '{jsonValue.internalObjectTypeName}' to '{targetType}'");
+            throw new InvalidCastException($"Invalid Json cast: '{jsonValue.InternalObjectTypeName}' to '{targetType}'");
         }
     }
 
     public struct JsonValue
     {
+        private static string MakeOverflowStr(Type dstType)
+        {
+            return $"Value was either too large or too small for a {dstType}";
+        }
+        private static string MakeInvalidCastStr(object obj, Type dstType)
+        {
+            string objTypeName = obj == null ? NullConstant : obj.GetType().ToString();
+            return $"Invalid Json cast: '{objTypeName}' to '{dstType}'";
+        }
+
         // Constructors
         private JsonValue(int val)
         {
             obj = val;
-            type = JsonType.Number;
+            Type = JsonType.Number;
         }
         private JsonValue(uint val)
         {
             obj = val;
-            type = JsonType.Number;
+            Type = JsonType.Number;
         }
         private JsonValue(long val)
         {
             obj = val;
-            type = JsonType.Number;
+            Type = JsonType.Number;
         }
         private JsonValue(ulong val)
         {
             obj = val;
-            type = JsonType.Number;
+            Type = JsonType.Number;
         }
         private JsonValue(float val)
         {
             obj = val;
-            type = JsonType.Number;
+            Type = JsonType.Number;
         }
         private JsonValue(double val)
         {
             obj = val;
-            type = JsonType.Number;
+            Type = JsonType.Number;
         }
         private JsonValue(string val)
         {
             obj = val;
-            type = val == null ? JsonType.Null : JsonType.String;
+            Type = val == null ? JsonType.Null : JsonType.String;
         }
         private JsonValue(bool val)
         {
             obj = val;
-            type = JsonType.Bool;
+            Type = JsonType.Bool;
         }
         private JsonValue(JsonArray val)
         {
             obj = val;
-            type = val == null ? JsonType.Null : JsonType.Array;
+            Type = val == null ? JsonType.Null : JsonType.Array;
         }
         private JsonValue(JsonObject val)
         {
             obj = val;
-            type = val == null ? JsonType.Null : JsonType.Object;
+            Type = val == null ? JsonType.Null : JsonType.Object;
         }
 
         // Get value type
-        public bool isNull => type == JsonType.Null;
-        public bool isNumber => type == JsonType.Number;
-        public bool isString => type == JsonType.String;
-        public bool isBool => type == JsonType.Bool;
-        public bool isArray => type == JsonType.Array;
-        public bool isObject => type == JsonType.Object;
-        public JsonType type { get; private set; }
+        public bool IsNull => Type == JsonType.Null;
+        public bool IsNumber => Type == JsonType.Number;
+        public bool IsString => Type == JsonType.String;
+        public bool IsBool => Type == JsonType.Bool;
+        public bool IsArray => Type == JsonType.Array;
+        public bool IsObject => Type == JsonType.Object;
+        public JsonType Type { get; private set; }
 
         // Try-get value (won't throw on invalid cast)
         public bool TryGetValue(out int val)
@@ -438,20 +448,20 @@ namespace AggroBird.Json
                 case long l:
                 {
                     if (l >= int.MinValue && l <= int.MaxValue) return (int)l;
-                    throw new OverflowException($"Value was either too large or too small for a {typeof(int)}.");
+                    throw new OverflowException(MakeOverflowStr(typeof(int)));
                 }
                 case ulong ul:
                 {
                     if (ul <= int.MaxValue) return (int)ul;
-                    throw new OverflowException($"Value was either too large or too small for a {typeof(int)}.");
+                    throw new OverflowException(MakeOverflowStr(typeof(int)));
                 }
                 case double d:
                 {
                     if (d >= int.MinValue && d <= int.MaxValue) return (int)d;
-                    throw new OverflowException($"Value was either too large or too small for a {typeof(int)}.");
+                    throw new OverflowException(MakeOverflowStr(typeof(int)));
                 }
             }
-            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(int)}'");
+            throw new InvalidCastException(MakeInvalidCastStr(value.obj, typeof(int)));
         }
         public static explicit operator uint(JsonValue value)
         {
@@ -460,20 +470,20 @@ namespace AggroBird.Json
                 case long l:
                 {
                     if (l >= uint.MinValue && l <= uint.MaxValue) return (uint)l;
-                    throw new OverflowException($"Value was either too large or too small for a {typeof(uint)}.");
+                    throw new OverflowException(MakeOverflowStr(typeof(uint)));
                 }
                 case ulong ul:
                 {
                     if (ul <= uint.MaxValue) return (uint)ul;
-                    throw new OverflowException($"Value was either too large or too small for a {typeof(uint)}.");
+                    throw new OverflowException(MakeOverflowStr(typeof(uint)));
                 }
                 case double d:
                 {
                     if (d >= uint.MinValue && d <= uint.MaxValue) return (uint)d;
-                    throw new OverflowException($"Value was either too large or too small for a {typeof(uint)}.");
+                    throw new OverflowException(MakeOverflowStr(typeof(uint)));
                 }
             }
-            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(uint)}'");
+            throw new InvalidCastException(MakeInvalidCastStr(value.obj, typeof(uint)));
         }
         public static explicit operator long(JsonValue value)
         {
@@ -486,15 +496,15 @@ namespace AggroBird.Json
                 case ulong ul:
                 {
                     if (ul <= long.MaxValue) return (long)ul;
-                    throw new OverflowException($"Value was either too large or too small for a {typeof(long)}.");
+                    throw new OverflowException(MakeOverflowStr(typeof(long)));
                 }
                 case double d:
                 {
                     if (d >= long.MinValue && d <= long.MaxValue) return (long)d;
-                    throw new OverflowException($"Value was either too large or too small for a {typeof(long)}.");
+                    throw new OverflowException(MakeOverflowStr(typeof(long)));
                 }
             }
-            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(long)}'");
+            throw new InvalidCastException(MakeInvalidCastStr(value.obj, typeof(long)));
         }
         public static explicit operator ulong(JsonValue value)
         {
@@ -503,7 +513,7 @@ namespace AggroBird.Json
                 case long l:
                 {
                     if (l >= 0) return (ulong)l;
-                    throw new OverflowException($"Value was either too large or too small for a {typeof(ulong)}.");
+                    throw new OverflowException(MakeOverflowStr(typeof(ulong)));
                 }
                 case ulong ul:
                 {
@@ -512,10 +522,10 @@ namespace AggroBird.Json
                 case double d:
                 {
                     if (d >= ulong.MinValue && d <= ulong.MaxValue) return (ulong)d;
-                    throw new OverflowException($"Value was either too large or too small for a {typeof(ulong)}.");
+                    throw new OverflowException(MakeOverflowStr(typeof(ulong)));
                 }
             }
-            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(ulong)}'");
+            throw new InvalidCastException(MakeInvalidCastStr(value.obj, typeof(ulong)));
         }
         public static explicit operator float(JsonValue value)
         {
@@ -534,7 +544,7 @@ namespace AggroBird.Json
                     return (float)d;
                 }
             }
-            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(float)}'");
+            throw new InvalidCastException(MakeInvalidCastStr(value.obj, typeof(float)));
         }
         public static explicit operator double(JsonValue value)
         {
@@ -553,7 +563,7 @@ namespace AggroBird.Json
                     return d;
                 }
             }
-            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(double)}'");
+            throw new InvalidCastException(MakeInvalidCastStr(value.obj, typeof(double)));
         }
         public static explicit operator string(JsonValue value)
         {
@@ -561,7 +571,7 @@ namespace AggroBird.Json
             {
                 return val;
             }
-            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(string)}'");
+            throw new InvalidCastException(MakeInvalidCastStr(value.obj, typeof(string)));
         }
         public static explicit operator bool(JsonValue value)
         {
@@ -569,7 +579,7 @@ namespace AggroBird.Json
             {
                 return val;
             }
-            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(bool)}'");
+            throw new InvalidCastException(MakeInvalidCastStr(value.obj, typeof(bool)));
         }
         public static explicit operator JsonArray(JsonValue value)
         {
@@ -577,7 +587,7 @@ namespace AggroBird.Json
             {
                 return val;
             }
-            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(JsonArray)}'");
+            throw new InvalidCastException(MakeInvalidCastStr(value.obj, typeof(JsonArray)));
         }
         public static explicit operator JsonObject(JsonValue value)
         {
@@ -585,7 +595,7 @@ namespace AggroBird.Json
             {
                 return val;
             }
-            throw new InvalidCastException($"Invalid Json cast: '{value.internalObjectTypeName}' to '{typeof(JsonObject)}'");
+            throw new InvalidCastException(MakeInvalidCastStr(value.obj, typeof(JsonObject)));
         }
 
         // Implicit assignment operators
@@ -614,9 +624,9 @@ namespace AggroBird.Json
         internal const int OutputBufferCapacity = 1024;
 
 
-        private object obj;
+        private readonly object obj;
 
-        internal string internalObjectTypeName => obj == null ? NullConstant : obj.GetType().Name;
+        internal string InternalObjectTypeName => obj == null ? NullConstant : obj.GetType().Name;
 
         public override int GetHashCode()
         {
