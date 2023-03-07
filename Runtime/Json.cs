@@ -882,7 +882,7 @@ namespace AggroBird.Json
                                             case 'u':
                                             {
                                                 // Parse hex char code
-                                                if (remaining >= 5 && uint.TryParse(new string(ptr, 1, 4), NumberStyles.AllowHexSpecifier, null, out uint charCode))
+                                                if (remaining >= 5 && uint.TryParse(new string(ptr, 1, 4), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out uint charCode))
                                                 {
                                                     stringBuffer.Append((char)charCode);
 
@@ -964,7 +964,7 @@ namespace AggroBird.Json
                                         val = ul;
                                         return TokenType.Value;
                                     }
-                                    else if (double.TryParse(subStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double d))
+                                    else if (double.TryParse(subStr, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double d))
                                     {
                                         val = d;
                                         return TokenType.Value;
