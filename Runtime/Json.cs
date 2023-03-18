@@ -386,10 +386,14 @@ namespace AggroBird.Json
         }
         public bool TryGetValue(out double val)
         {
-            if (obj is double d)
+            try
             {
-                val = d;
+                val = (double)this;
                 return true;
+            }
+            catch (Exception)
+            {
+
             }
 
             val = default;
