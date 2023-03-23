@@ -250,12 +250,12 @@ namespace AggroBird.Json
         // Constructors
         private JsonValue(int val)
         {
-            obj = val;
+            obj = (long)val;
             Type = JsonType.Number;
         }
         private JsonValue(uint val)
         {
-            obj = val;
+            obj = (ulong)val;
             Type = JsonType.Number;
         }
         private JsonValue(long val)
@@ -270,7 +270,7 @@ namespace AggroBird.Json
         }
         private JsonValue(float val)
         {
-            obj = val;
+            obj = (double)val;
             Type = JsonType.Number;
         }
         private JsonValue(double val)
