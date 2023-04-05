@@ -49,7 +49,7 @@ namespace AggroBird.Json
         public abstract string Serialize(object obj);
     }
 
-    internal struct DefaultJsonDeserializer
+    internal readonly struct DefaultJsonDeserializer
     {
         public DefaultJsonDeserializer(IReadOnlyDictionary<Type, JsonDeserializer> deserializers, IReadOnlyList<Type> fieldAttributes)
         {
@@ -81,12 +81,12 @@ namespace AggroBird.Json
             useCustomDeserializers = deserializers != null && deserializers.Count > 0;
         }
 
-        private IReadOnlyDictionary<Type, JsonDeserializer> deserializers;
-        private bool useCustomDeserializers;
+        private readonly IReadOnlyDictionary<Type, JsonDeserializer> deserializers;
+        private readonly bool useCustomDeserializers;
 
-        private IReadOnlyList<Type> fieldAttributes;
-        private bool useFieldAttributes;
-        private BindingFlags bindingFlags;
+        private readonly IReadOnlyList<Type> fieldAttributes;
+        private readonly bool useFieldAttributes;
+        private readonly BindingFlags bindingFlags;
 
         public object Deserialize(JsonValue jsonValue, Type targetType)
         {
@@ -235,7 +235,7 @@ namespace AggroBird.Json
         }
     }
 
-    public struct JsonValue
+    public readonly struct JsonValue
     {
         private static string MakeOverflowStr(Type dstType)
         {
@@ -248,65 +248,64 @@ namespace AggroBird.Json
         }
 
         // Constructors
-        private JsonValue(int val)
+        public JsonValue(int val)
         {
             obj = (long)val;
-            Type = JsonType.Number;
+            type = JsonType.Number;
         }
-        private JsonValue(uint val)
+        public JsonValue(uint val)
         {
             obj = (ulong)val;
-            Type = JsonType.Number;
+            type = JsonType.Number;
         }
-        private JsonValue(long val)
+        public JsonValue(long val)
         {
             obj = val;
-            Type = JsonType.Number;
+            type = JsonType.Number;
         }
-        private JsonValue(ulong val)
+        public JsonValue(ulong val)
         {
             obj = val;
-            Type = JsonType.Number;
+            type = JsonType.Number;
         }
-        private JsonValue(float val)
+        public JsonValue(float val)
         {
             obj = (double)val;
-            Type = JsonType.Number;
+            type = JsonType.Number;
         }
-        private JsonValue(double val)
+        public JsonValue(double val)
         {
             obj = val;
-            Type = JsonType.Number;
+            type = JsonType.Number;
         }
-        private JsonValue(string val)
+        public JsonValue(string val)
         {
             obj = val;
-            Type = val == null ? JsonType.Null : JsonType.String;
+            type = val == null ? JsonType.Null : JsonType.String;
         }
-        private JsonValue(bool val)
+        public JsonValue(bool val)
         {
             obj = val;
-            Type = JsonType.Bool;
+            type = JsonType.Bool;
         }
-        private JsonValue(JsonArray val)
+        public JsonValue(JsonArray val)
         {
             obj = val;
-            Type = val == null ? JsonType.Null : JsonType.Array;
+            type = val == null ? JsonType.Null : JsonType.Array;
         }
-        private JsonValue(JsonObject val)
+        public JsonValue(JsonObject val)
         {
             obj = val;
-            Type = val == null ? JsonType.Null : JsonType.Object;
+            type = val == null ? JsonType.Null : JsonType.Object;
         }
 
         // Get value type
-        public bool IsNull => Type == JsonType.Null;
-        public bool IsNumber => Type == JsonType.Number;
-        public bool IsString => Type == JsonType.String;
-        public bool IsBool => Type == JsonType.Bool;
-        public bool IsArray => Type == JsonType.Array;
-        public bool IsObject => Type == JsonType.Object;
-        public JsonType Type { get; private set; }
+        public bool IsNull => type == JsonType.Null;
+        public bool IsNumber => type == JsonType.Number;
+        public bool IsString => type == JsonType.String;
+        public bool IsBool => type == JsonType.Bool;
+        public bool IsArray => type == JsonType.Array;
+        public bool IsObject => type == JsonType.Object;
 
         // Try-get value (won't throw on invalid cast)
         public bool TryGetValue(out int val)
@@ -603,32 +602,21 @@ namespace AggroBird.Json
         }
 
         // Implicit assignment operators
-        public static implicit operator JsonValue(int value) => new JsonValue(value);
-        public static implicit operator JsonValue(uint value) => new JsonValue(value);
-        public static implicit operator JsonValue(long value) => new JsonValue(value);
-        public static implicit operator JsonValue(ulong value) => new JsonValue(value);
-        public static implicit operator JsonValue(float value) => new JsonValue(value);
-        public static implicit operator JsonValue(double value) => new JsonValue(value);
-        public static implicit operator JsonValue(string value) => new JsonValue(value);
-        public static implicit operator JsonValue(bool value) => new JsonValue(value);
-        public static implicit operator JsonValue(JsonArray value) => new JsonValue(value);
-        public static implicit operator JsonValue(JsonObject value) => new JsonValue(value);
+        public static implicit operator JsonValue(int value) => new(value);
+        public static implicit operator JsonValue(uint value) => new(value);
+        public static implicit operator JsonValue(long value) => new(value);
+        public static implicit operator JsonValue(ulong value) => new(value);
+        public static implicit operator JsonValue(float value) => new(value);
+        public static implicit operator JsonValue(double value) => new(value);
+        public static implicit operator JsonValue(string value) => new(value);
+        public static implicit operator JsonValue(bool value) => new(value);
+        public static implicit operator JsonValue(JsonArray value) => new(value);
+        public static implicit operator JsonValue(JsonObject value) => new(value);
 
-        // Parsing constants
-        internal const string DoubleFormat = "G17";
-        internal const string DateTimeFormat = "o";
-        internal const string TrueConstant = "true";
-        internal const string FalseConstant = "false";
-        internal const string NullConstant = "null";
-        internal const int ReadMaxRecursion = 128;
-        internal const int WriteMaxRecursion = 32;
-        internal const int ReadMaxArrayLength = 1024;
-        internal const int ReadMaxFieldCount = 256;
-        internal const int StringBufferCapacity = 256;
-        internal const int OutputBufferCapacity = 1024;
-
-
+        // Content
         private readonly object obj;
+        private readonly JsonType type;
+        public JsonType Type => type;
 
         internal string InternalObjectTypeName => obj == null ? NullConstant : obj.GetType().Name;
 
@@ -647,10 +635,25 @@ namespace AggroBird.Json
                 return ToJson(this);
             }
         }
-        public object ToObject()
+
+        internal object GetObj()
         {
             return obj;
         }
+
+
+        // Parsing
+        internal const string DoubleFormat = "G17";
+        internal const string DateTimeFormat = "o";
+        internal const string TrueConstant = "true";
+        internal const string FalseConstant = "false";
+        internal const string NullConstant = "null";
+        internal const int ReadMaxRecursion = 128;
+        internal const int WriteMaxRecursion = 32;
+        internal const int ReadMaxArrayLength = 1024;
+        internal const int ReadMaxFieldCount = 256;
+        internal const int StringBufferCapacity = 256;
+        internal const int OutputBufferCapacity = 1024;
 
         internal static bool HasFieldAttribute(FieldInfo fieldInfo, IReadOnlyList<Type> fieldAttributes)
         {
@@ -663,7 +666,6 @@ namespace AggroBird.Json
             }
             return false;
         }
-
 
         public static object FromJson(JsonValue jsonValue, Type targetType, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Type> fieldAttributes = null)
         {
@@ -691,7 +693,7 @@ namespace AggroBird.Json
 
         public static string ToJson(object value, IReadOnlyDictionary<Type, JsonSerializer> serializers = null, IReadOnlyList<Type> fieldAttributes = null)
         {
-            JsonWriter writer = new JsonWriter { Serializers = serializers, FieldAttributes = fieldAttributes };
+            JsonWriter writer = new() { Serializers = serializers, FieldAttributes = fieldAttributes };
             return writer.ToJson(value);
         }
     }
@@ -955,7 +957,7 @@ namespace AggroBird.Json
                                     throw new OverflowException();
                                 }
 
-                                string subStr = new string(beg, 0, (int)len);
+                                string subStr = new(beg, 0, (int)len);
                                 if (char.IsDigit(subStr[0]) || subStr[0] == '-')
                                 {
                                     if (long.TryParse(subStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out long l))
@@ -1066,7 +1068,7 @@ namespace AggroBird.Json
             }
             level++;
 
-            JsonObject jsonObject = new JsonObject();
+            JsonObject jsonObject = new();
             if (!PeekNext(TokenType.BraceClose))
             {
             Next:
@@ -1121,7 +1123,7 @@ namespace AggroBird.Json
             }
             level++;
 
-            JsonArray jsonArray = new JsonArray();
+            JsonArray jsonArray = new();
             if (!PeekNext(TokenType.BracketClose))
             {
             Next:
@@ -1306,7 +1308,7 @@ namespace AggroBird.Json
 
             if (value is JsonValue asJsonValue)
             {
-                value = asJsonValue.ToObject();
+                value = asJsonValue.GetObj();
             }
 
             // Null
@@ -1377,11 +1379,11 @@ namespace AggroBird.Json
                 {
                     if (written) stringBuffer.Append(',');
                     written = true;
-                    if (!(entry.Key is string key))
+                    if (entry.Key is not string key)
                     {
                         throw new InvalidCastException($"Dictionary key type has to be string");
                     }
-                    WriteValue(entry.Key as string);
+                    WriteValue(key);
                     stringBuffer.Append(':');
                     WriteRecursive(entry.Value, level);
                 }
