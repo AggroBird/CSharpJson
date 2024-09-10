@@ -51,7 +51,7 @@ namespace AggroBird.Json
 
     internal readonly struct DefaultJsonDeserializer
     {
-        public DefaultJsonDeserializer(IReadOnlyDictionary<Type, JsonDeserializer> deserializers, IReadOnlyList<Type> fieldAttributes)
+        public DefaultJsonDeserializer(IReadOnlyDictionary<Type, JsonDeserializer> deserializers, IReadOnlyList<Type> fieldAttributes, bool allowMissingFields)
         {
             if (fieldAttributes != null)
             {
@@ -79,6 +79,8 @@ namespace AggroBird.Json
             }
             this.deserializers = deserializers;
             useCustomDeserializers = deserializers != null && deserializers.Count > 0;
+
+            this.allowMissingFields = allowMissingFields;
         }
 
         private readonly IReadOnlyDictionary<Type, JsonDeserializer> deserializers;
@@ -87,6 +89,7 @@ namespace AggroBird.Json
         private readonly IReadOnlyList<Type> fieldAttributes;
         private readonly bool useFieldAttributes;
         private readonly BindingFlags bindingFlags;
+        private readonly bool allowMissingFields;
 
         public object Deserialize(JsonValue jsonValue, Type targetType)
         {
@@ -224,6 +227,10 @@ namespace AggroBird.Json
                     FieldInfo fieldInfo = targetType.GetField(kv.Key, bindingFlags);
                     if (fieldInfo == null || (!fieldInfo.IsPublic && (!useFieldAttributes || !JsonValue.HasFieldAttribute(fieldInfo, fieldAttributes))))
                     {
+                        if (allowMissingFields)
+                        {
+                            continue;
+                        }
                         throw new MissingFieldException($"Failed to find field '{kv.Key}' in type '{targetType}'");
                     }
                     fieldInfo.SetValue(obj, Deserialize(kv.Value, fieldInfo.FieldType));
@@ -669,7 +676,7 @@ namespace AggroBird.Json
 
         public static object FromJson(JsonValue jsonValue, Type targetType, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Type> fieldAttributes = null)
         {
-            return new DefaultJsonDeserializer(deserializers, fieldAttributes).Deserialize(jsonValue, targetType);
+            return new DefaultJsonDeserializer(deserializers, fieldAttributes, true).Deserialize(jsonValue, targetType);
         }
         public static T FromJson<T>(JsonValue jsonObject, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Type> fieldAttributes = null)
         {
@@ -735,6 +742,8 @@ namespace AggroBird.Json
         public IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null;
         // Custom attributes that allow private fields to be read
         public IReadOnlyList<Type> fieldAttributes = null;
+        // Allow missing fields in deserialization (when false, throw exception is field is not found)
+        public bool allowMissingFields = true;
 
         private unsafe char* ptr = null;
         private unsafe char* end = null;
@@ -1204,11 +1213,11 @@ namespace AggroBird.Json
         public object FromJson(string str, Type targetType)
         {
             if (targetType == null) throw new ArgumentNullException(nameof(targetType));
-            return new DefaultJsonDeserializer(deserializers, fieldAttributes).Deserialize(FromJson(str), targetType);
+            return new DefaultJsonDeserializer(deserializers, fieldAttributes, allowMissingFields).Deserialize(FromJson(str), targetType);
         }
         public T FromJson<T>(string str)
         {
-            return (T)new DefaultJsonDeserializer(deserializers, fieldAttributes).Deserialize(FromJson(str), typeof(T));
+            return (T)new DefaultJsonDeserializer(deserializers, fieldAttributes, allowMissingFields).Deserialize(FromJson(str), typeof(T));
         }
     }
 
