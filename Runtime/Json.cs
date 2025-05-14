@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -98,6 +98,12 @@ namespace AggroBird.Json
             if (jsonValue.IsNull)
             {
                 return null;
+            }
+
+            // Use nullable inner type
+            if (targetType.IsGenericType && targetType.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
+                targetType = targetType.GetGenericArguments()[0];
             }
 
             // Check for custom deserializers
@@ -820,7 +826,7 @@ namespace AggroBird.Json
 
         private unsafe TokenType ParseNext(out JsonValue val)
         {
-            val = new JsonValue();
+            val = default;
 
             while (ptr < end)
             {
