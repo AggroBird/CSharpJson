@@ -787,6 +787,7 @@ namespace AggroBird.Json
         private unsafe char* end = null;
         private int lineNum = 1;
         private CommentState commentState = CommentState.None;
+        private bool isReading = false;
 
 
         // This function will skip ahead if it encounters valid comment tags
@@ -1244,9 +1245,22 @@ namespace AggroBird.Json
 
         public JsonValue FromJson(string str)
         {
-            if (str == null) throw new ArgumentNullException(nameof(str));
-            if (str.Length == 0) throw new ArgumentException($"Invalid Json string");
-            return Read(str);
+            if (isReading)
+            {
+                throw new Exception("Cannot use the same reader recursively");
+            }
+            isReading = true;
+
+            try
+            {
+                if (str == null) throw new ArgumentNullException(nameof(str));
+                if (str.Length == 0) throw new ArgumentException($"Invalid Json string");
+                return Read(str);
+            }
+            finally
+            {
+                isReading = false;
+            }
         }
         public object FromJson(string str, Type targetType)
         {
@@ -1316,33 +1330,47 @@ namespace AggroBird.Json
         private IReadOnlyList<Type> fieldAttributes = null;
         private bool useFieldAttributes = false;
         private BindingFlags bindingFlags = BindingFlags.Public | BindingFlags.Instance;
+        private bool isWriting = false;
 
         public string ToJson(object value)
         {
-            // Catch null early
-            if (value == null)
+            if (isWriting)
             {
-                return JsonValue.NullConstant;
+                throw new Exception("Cannot use the same writer recursively");
             }
+            isWriting = true;
 
-            // Check for custom serializers
-            if (useCustomSerializers && serializers.TryGetValue(value.GetType(), out JsonSerializer serializer))
+            try
             {
-                return serializer.Serialize(value);
-            }
+                // Catch null early
+                if (value == null)
+                {
+                    return JsonValue.NullConstant;
+                }
 
-            if (stringBuffer == null)
+                // Check for custom serializers
+                if (useCustomSerializers && serializers.TryGetValue(value.GetType(), out JsonSerializer serializer))
+                {
+                    return serializer.Serialize(value);
+                }
+
+                if (stringBuffer == null)
+                {
+                    stringBuffer = new StringBuilder(JsonValue.OutputBufferCapacity);
+                }
+                else
+                {
+                    stringBuffer.Clear();
+                }
+
+                WriteRecursive(value, 0);
+
+                return stringBuffer.ToString();
+            }
+            finally
             {
-                stringBuffer = new StringBuilder(JsonValue.OutputBufferCapacity);
+                isWriting = false;
             }
-            else
-            {
-                stringBuffer.Clear();
-            }
-
-            WriteRecursive(value, 0);
-
-            return stringBuffer.ToString();
         }
 
         private void WriteRecursive(object value, int level)
