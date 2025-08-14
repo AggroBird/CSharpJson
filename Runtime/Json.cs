@@ -745,11 +745,43 @@ namespace AggroBird.Json
         // Allow trailing and inline comments (not part of the JSON specifications)
         public bool allowComments = false;
         // Custom deserializers for specific object types
-        public IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null;
+        public IReadOnlyDictionary<Type, JsonDeserializer> Deserializers
+        {
+            get => deserializers;
+            set
+            {
+                if (value != null)
+                {
+                    foreach (var pair in value)
+                    {
+                        if (pair.Key == null || pair.Value == null) throw new NullReferenceException();
+                    }
+                }
+                deserializers = value;
+            }
+        }
         // Custom attributes that allow private fields to be read
-        public IReadOnlyList<Type> fieldAttributes = null;
+        public IReadOnlyList<Type> FieldAttributes
+        {
+            get => fieldAttributes;
+            set
+            {
+                if (value != null)
+                {
+                    foreach (var attr in value)
+                    {
+                        if (attr == null) throw new NullReferenceException();
+                        if (!attr.IsSubclassOf(typeof(Attribute))) throw new ArgumentException($"Type {attr} is not an attribute");
+                    }
+                }
+                fieldAttributes = value;
+            }
+        }
         // Allow missing fields in deserialization (when false, throw exception is field is not found)
         public bool allowMissingFields = true;
+
+        private IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null;
+        private IReadOnlyList<Type> fieldAttributes = null;
 
         private unsafe char* ptr = null;
         private unsafe char* end = null;
