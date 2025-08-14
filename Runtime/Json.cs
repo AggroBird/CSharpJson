@@ -53,14 +53,6 @@ namespace AggroBird.Json
     {
         public DefaultJsonDeserializer(IReadOnlyDictionary<Type, JsonDeserializer> deserializers, IReadOnlyList<Type> fieldAttributes, bool allowMissingFields)
         {
-            if (fieldAttributes != null)
-            {
-                foreach (var attr in fieldAttributes)
-                {
-                    if (attr == null) throw new NullReferenceException();
-                    if (!attr.IsSubclassOf(typeof(Attribute))) throw new ArgumentException($"Type {attr} is not an attribute");
-                }
-            }
             this.fieldAttributes = fieldAttributes;
             useFieldAttributes = fieldAttributes != null && fieldAttributes.Count > 0;
 
@@ -70,13 +62,6 @@ namespace AggroBird.Json
             else
                 bindingFlags &= ~BindingFlags.NonPublic;
 
-            if (deserializers != null)
-            {
-                foreach (var pair in deserializers)
-                {
-                    if (pair.Key == null || pair.Value == null) throw new NullReferenceException();
-                }
-            }
             this.deserializers = deserializers;
             useCustomDeserializers = deserializers != null && deserializers.Count > 0;
 
@@ -258,6 +243,27 @@ namespace AggroBird.Json
         {
             string objTypeName = obj == null ? NullConstant : obj.GetType().ToString();
             return $"Invalid Json cast: '{objTypeName}' to '{dstType}'";
+        }
+        internal static void ValidateFieldAttributes(IReadOnlyList<Type> types)
+        {
+            if (types != null)
+            {
+                foreach (var attr in types)
+                {
+                    if (attr == null) throw new NullReferenceException();
+                    if (!attr.IsSubclassOf(typeof(Attribute))) throw new ArgumentException($"Type {attr} is not an attribute");
+                }
+            }
+        }
+        internal static void ValidateDictionary<T>(IReadOnlyDictionary<Type, T> dictionary)
+        {
+            if (dictionary != null)
+            {
+                foreach (var pair in dictionary)
+                {
+                    if (pair.Key == null || pair.Value == null) throw new NullReferenceException();
+                }
+            }
         }
 
         // Constructors
@@ -682,6 +688,8 @@ namespace AggroBird.Json
 
         public static object FromJson(JsonValue jsonValue, Type targetType, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Type> fieldAttributes = null)
         {
+            ValidateDictionary(deserializers);
+            ValidateFieldAttributes(fieldAttributes);
             return new DefaultJsonDeserializer(deserializers, fieldAttributes, true).Deserialize(jsonValue, targetType);
         }
         public static T FromJson<T>(JsonValue jsonObject, IReadOnlyDictionary<Type, JsonDeserializer> deserializers = null, IReadOnlyList<Type> fieldAttributes = null)
@@ -750,13 +758,7 @@ namespace AggroBird.Json
             get => deserializers;
             set
             {
-                if (value != null)
-                {
-                    foreach (var pair in value)
-                    {
-                        if (pair.Key == null || pair.Value == null) throw new NullReferenceException();
-                    }
-                }
+                JsonValue.ValidateDictionary(value);
                 deserializers = value;
             }
         }
@@ -766,14 +768,7 @@ namespace AggroBird.Json
             get => fieldAttributes;
             set
             {
-                if (value != null)
-                {
-                    foreach (var attr in value)
-                    {
-                        if (attr == null) throw new NullReferenceException();
-                        if (!attr.IsSubclassOf(typeof(Attribute))) throw new ArgumentException($"Type {attr} is not an attribute");
-                    }
-                }
+                JsonValue.ValidateFieldAttributes(value);
                 fieldAttributes = value;
             }
         }
@@ -1288,15 +1283,8 @@ namespace AggroBird.Json
             get => serializers;
             set
             {
-                if (value != null)
-                {
-                    foreach (var pair in value)
-                    {
-                        if (pair.Key == null || pair.Value == null) throw new NullReferenceException();
-                    }
-                }
+                JsonValue.ValidateDictionary(value);
                 serializers = value;
-
                 useCustomSerializers = serializers != null && serializers.Count > 0;
             }
         }
@@ -1306,14 +1294,7 @@ namespace AggroBird.Json
             get => fieldAttributes;
             set
             {
-                if (value != null)
-                {
-                    foreach (var attr in value)
-                    {
-                        if (attr == null) throw new NullReferenceException();
-                        if (!attr.IsSubclassOf(typeof(Attribute))) throw new ArgumentException($"Type {attr} is not an attribute");
-                    }
-                }
+                JsonValue.ValidateFieldAttributes(value);
                 fieldAttributes = value;
 
                 useFieldAttributes = fieldAttributes != null && fieldAttributes.Count > 0;
