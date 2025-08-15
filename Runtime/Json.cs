@@ -1323,18 +1323,6 @@ namespace AggroBird.Json
 
             try
             {
-                // Catch null early
-                if (value == null)
-                {
-                    return JsonValue.NullConstant;
-                }
-
-                // Check for custom serializers
-                if (useCustomSerializers && serializers.TryGetValue(value.GetType(), out JsonSerializer serializer))
-                {
-                    return serializer.Serialize(value);
-                }
-
                 if (stringBuffer == null)
                 {
                     stringBuffer = new StringBuilder(JsonValue.OutputBufferCapacity);
@@ -1374,8 +1362,16 @@ namespace AggroBird.Json
                 return;
             }
 
-            // Base types
             Type type = value.GetType();
+
+            // Check for custom serializers
+            if (useCustomSerializers && serializers.TryGetValue(type, out JsonSerializer serializer))
+            {
+                stringBuffer.Append(serializer.Serialize(value));
+                return;
+            }
+
+            // Base types
             TypeCode typeCode = Type.GetTypeCode(type);
             switch (typeCode)
             {
