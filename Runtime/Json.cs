@@ -97,12 +97,6 @@ namespace AggroBird.Json
                 return deserializer.Deserialize(jsonValue);
             }
 
-            // Check for enum strings
-            if (targetType.IsEnum && jsonValue.TryGetValue(out string enumValue))
-            {
-                return Enum.Parse(targetType, enumValue);
-            }
-
             TypeCode typeCode = Type.GetTypeCode(targetType);
             switch (typeCode)
             {
@@ -1000,7 +994,7 @@ namespace AggroBird.Json
                                     throw new OverflowException();
                                 }
 
-                                string subStr = new(beg, 0, (int)len);
+                                ReadOnlySpan<char> subStr = new(beg, (int)len);
                                 if (char.IsDigit(subStr[0]) || subStr[0] == '-')
                                 {
                                     if (long.TryParse(subStr, NumberStyles.Integer, CultureInfo.InvariantCulture, out long l))
@@ -1034,7 +1028,7 @@ namespace AggroBird.Json
                                     return TokenType.Value;
                                 }
 
-                                throw new FormatException($"Unknown expression '{subStr}' (line {lineNum})");
+                                throw new FormatException($"Unknown expression '{subStr.ToString()}' (line {lineNum})");
                             }
                         }
                         throw new FormatException($"Unexpected character '{c}' (line {lineNum})");
@@ -1386,29 +1380,28 @@ namespace AggroBird.Json
                     return;
 
                 case TypeCode.SByte:
+                    stringBuffer.Append(type.IsEnum ? ((sbyte)value).ToString() : value.ToString());
+                    return;
                 case TypeCode.Byte:
+                    stringBuffer.Append(type.IsEnum ? ((byte)value).ToString() : value.ToString());
+                    return;
                 case TypeCode.Int16:
+                    stringBuffer.Append(type.IsEnum ? ((short)value).ToString() : value.ToString());
+                    return;
                 case TypeCode.UInt16:
+                    stringBuffer.Append(type.IsEnum ? ((ushort)value).ToString() : value.ToString());
+                    return;
                 case TypeCode.Int32:
+                    stringBuffer.Append(type.IsEnum ? ((int)value).ToString() : value.ToString());
+                    return;
                 case TypeCode.UInt32:
+                    stringBuffer.Append(type.IsEnum ? ((uint)value).ToString() : value.ToString());
+                    return;
                 case TypeCode.Int64:
+                    stringBuffer.Append(type.IsEnum ? ((long)value).ToString() : value.ToString());
+                    return;
                 case TypeCode.UInt64:
-                    if (type.IsEnum)
-                    {
-                        string str = value.ToString();
-                        if (Enum.IsDefined(type, str))
-                        {
-                            // Enum is representable as string
-                            WriteValue(str);
-                        }
-                        else
-                        {
-                            // Enum is not representable as string
-                            stringBuffer.Append(str);
-                        }
-                        return;
-                    }
-                    stringBuffer.Append(value.ToString());
+                    stringBuffer.Append(type.IsEnum ? ((ulong)value).ToString() : value.ToString());
                     return;
 
                 case TypeCode.Single:
