@@ -1013,7 +1013,7 @@ namespace AggroBird.Json
                                         return TokenType.Value;
                                     }
                                 }
-                                else if (MemoryExtensions.Equals(subStr, JsonValue.TrueConstant, StringComparison.Ordinal)) //(subStr == JsonValue.TrueConstant)
+                                else if (MemoryExtensions.Equals(subStr, JsonValue.TrueConstant, StringComparison.Ordinal))
                                 {
                                     val = true;
                                     return TokenType.Value;
