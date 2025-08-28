@@ -1013,17 +1013,17 @@ namespace AggroBird.Json
                                         return TokenType.Value;
                                     }
                                 }
-                                else if (subStr == JsonValue.TrueConstant)
+                                else if (MemoryExtensions.Equals(subStr, JsonValue.TrueConstant, StringComparison.Ordinal)) //(subStr == JsonValue.TrueConstant)
                                 {
                                     val = true;
                                     return TokenType.Value;
                                 }
-                                else if (subStr == JsonValue.FalseConstant)
+                                else if (MemoryExtensions.Equals(subStr, JsonValue.FalseConstant, StringComparison.Ordinal))
                                 {
                                     val = false;
                                     return TokenType.Value;
                                 }
-                                else if (subStr == JsonValue.NullConstant)
+                                else if (MemoryExtensions.Equals(subStr, JsonValue.NullConstant, StringComparison.Ordinal))
                                 {
                                     return TokenType.Value;
                                 }
